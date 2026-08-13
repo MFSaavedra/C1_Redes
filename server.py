@@ -1,11 +1,11 @@
- import socket
+import socket
  
  
  # esta función se encarga de recibir el mensaje completo desde el cliente
  # en caso de que el mensaje sea más grande que el tamaño del buffer 'buff_size', esta función va esperar a que
  # llegue el resto. Para saber si el mensaje ya llegó por completo, se busca el caracter de fin de mensaje (parte de nuestro protocolo inventado)
  
- def receive_full_message(connection_socket, buff_size, end_sequence):
+def receive_full_message(connection_socket, buff_size, end_sequence):
  
      # recibimos la primera parte del mensaje
      recv_message = connection_socket.recv(buff_size)
@@ -33,15 +33,15 @@
      return full_message
  
  
- def contains_end_of_message(message, end_sequence):
+def contains_end_of_message(message, end_sequence):
      return message.endswith(end_sequence)
  
  
- def remove_end_of_message(full_message, end_sequence):
+def remove_end_of_message(full_message, end_sequence):
      index = full_message.rfind(end_sequence)
      return full_message[:index]
  
- if __name__ == "__main__":
+if __name__ == "__main__":
      # definimos el tamaño del buffer de recepción y la secuencia de fin de mensaje
      buff_size = 4
      end_of_message = "\n"

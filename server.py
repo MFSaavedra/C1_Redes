@@ -1,5 +1,5 @@
 import socket
-from utils import receive_full_message, parse_HTTP_message, create_HTTP_message
+from utils import build_HTTP_response, receive_full_message, parse_HTTP_message, create_HTTP_message
 
 if __name__ == "__main__":
      new_socket_address = ('0.0.0.0', 8000)
@@ -25,8 +25,8 @@ if __name__ == "__main__":
              parsed_message = parse_HTTP_message(recv_message)
              print(f' -> Se ha recibido el siguiente mensaje: {parsed_message}')
 
-             reconstructed_message = create_HTTP_message(parsed_message)
-             print(f' -> Se ha reconstruido el mensaje: {reconstructed_message}')
+             response = build_HTTP_response(200, "OK", "<html><body><h1>webiwabo</h1></body></html>")
+             new_socket.sendall(response)
 
          new_socket.close()
          print(f"conexión con {new_socket_address} ha sido cerrada")

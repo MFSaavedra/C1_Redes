@@ -62,4 +62,27 @@ def parse_HTTP_message(http_message):
     return {"start_line": start_line, "headers": headers, "body": body}
 
 def create_HTTP_message(message):
+    pass
+
+def build_HTTP_response(status_code, reason, body_str, content_type="text/html; charset=utf-8"):
+    """
+    Build an HTTP response message.
+    """
+    body = body_str.encode('utf-8')
+    
+    response_dict = {
+        "start_line": {
+            "version": "HTTP/1.1",
+            "status_code": status_code,
+            "reason": reason
+        },
+        "headers": {
+            "Content-Type": content_type,
+            "Content-Length": str(len(body)),
+            "Connection": "close"
+        },
+        "body": body
+    }
+    
+    return create_HTTP_message(response_dict)
     

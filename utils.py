@@ -1,5 +1,3 @@
-import socket
-
 def receive_full_message(connection_socket, buff_size=4096):
     """
     Receive a full HTTP message from the connection socket.
@@ -42,16 +40,23 @@ def parse_HTTP_message(http_message):
         header = http_message
         body = b""
 
-    header_str = header.decode("utf-8")
+    header_str = header.decode("utf-8", errors="replace")
     header_lines = header_str.split("\r\n")
 
     start_line_parts = header_lines[0].split(" ")
-    if len(start_line_parts) == 3:
-        start_line = {
-            "method": start_line_parts[0],
-            "path": start_line_parts[1],
-            "version": start_line_parts[2],
-        }
+    if len(start_line_parts) >= 3:
+        if start_line_parts[0].startswith("HTTP/"):
+            start_line = {
+                "version": start_line_parts[0],
+                "status_code": int(start_line_parts[1]),
+                "reason": " ".join(start_line_parts[2:]),
+            }
+        else:
+            start_line = {
+                "method": start_line_parts[0],
+                "path": start_line_parts[1],
+                "version": start_line_parts[2],
+            }
 
     headers = {}
     for line in header_lines[1:]:
@@ -62,7 +67,24 @@ def parse_HTTP_message(http_message):
     return {"start_line": start_line, "headers": headers, "body": body}
 
 def create_HTTP_message(message):
-    pass
+    """
+    Create an HTTP message from its components.
+    Expects a dictionary with 'start_line', 'headers', and 'body'.
+    """
+    start_line = message["start_line"]
+    headers = message["headers"]
+    body = message["body"]
+
+    if "method" in start_line:
+        start_line_str = f"{start_line['method']} {start_line['path']} {start_line['version']}\r\n"
+    else:
+        start_line_str = f"{start_line['version']} {start_line['status_code']} {start_line['reason']}\r\n"
+    
+    headers_str = ""
+    for key, value in headers.items():
+        headers_str += f"{key}: {value}\r\n"
+
+    return (start_line_str + headers_str + "\r\n").encode("utf-8") + body
 
 def build_HTTP_response(status_code, reason, body_str, content_type="text/html; charset=utf-8"):
     """

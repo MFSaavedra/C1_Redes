@@ -86,12 +86,15 @@ def create_HTTP_message(message):
 
     return (start_line_str + headers_str + "\r\n").encode("utf-8") + body
 
-def build_HTTP_response(status_code, reason, body_str, content_type="text/html; charset=utf-8"):
+def build_HTTP_response(status_code, reason, body_str, user_name="InserteNombre", content_type="text/html; charset=utf-8"):
     """
     Build an HTTP response message.
     """
-    body = body_str.encode('utf-8')
-    
+    if isinstance(body_str, str):
+        body = body_str.encode('utf-8')
+    else:
+        body = body_str
+
     response_dict = {
         "start_line": {
             "version": "HTTP/1.1",
@@ -101,7 +104,8 @@ def build_HTTP_response(status_code, reason, body_str, content_type="text/html; 
         "headers": {
             "Content-Type": content_type,
             "Content-Length": str(len(body)),
-            "Connection": "close"
+            "Connection": "close",
+            "X-ElQuePregunta": user_name
         },
         "body": body
     }

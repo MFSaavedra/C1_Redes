@@ -1,0 +1,115 @@
+% Template:     Tesis LaTeX
+% Documento:    Archivo principal
+% Versión:      DEV
+% Codificación: UTF-8
+%
+% Autor: Pablo Pizarro R.
+%        pablo@ppizarror.com
+%
+% Manual template: [https://latex.ppizarror.com/tesis]
+% Licencia MIT:    [https://opensource.org/licenses/MIT]
+
+% CREACIÓN DEL DOCUMENTO
+\documentclass[
+	spanish, % Idioma: spanish, english, etc.	
+	letterpaper, oneside
+]{book}
+
+% INFORMACIÓN DEL DOCUMENTO
+\def\documenttitle {Título de la tesis}
+\def\documentsubtitle {}
+\def\degreetitle {
+	Tesis para optar al grado de magíster en ciencias de la ingeniería, mención área de la ingeniería
+	\bigbreak\vspace{0.3cm}
+	Memoria para optar al título de ingeniero
+}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de la Universidad}
+\def\universitydepartmentimage {departamentos/uchile2}
+\def\universitydepartmentimagecfg {height=3cm}
+\def\universitylocation {Santiago de Chile}
+
+% INTEGRANTES, PROFESORES Y FECHAS
+\def\documentauthor {Nombre del autor}
+\def\documentdate {\the\year}
+
+\def\portrait {
+	\begin{center}
+	\vspace{1.5cm} ~ \\
+	\MakeUppercase{\textbf{\documenttitle}} ~ \\
+	\vspace{1.5cm}
+	\MakeUppercase{\degreetitle} ~ \\
+	\vfill
+	\begin{tabular}{c}
+		\MakeUppercase{\textbf{\documentauthor}} \\ \\
+		\vspace{1.0cm} \\
+		PROFESOR GUÍA: \\
+		PROFESOR 1 \\
+		\vspace{0.5cm} \\
+		MIEMBROS DE LA COMISIÓN: \\
+		PROFESOR 2 \\
+		PROFESOR 3 \\
+		\vspace{0.5cm} \\
+		Este trabajo ha sido parcialmente financiado por: \\
+		NOMBRE INSTITUCIÓN \\
+		\vspace{0.5cm} \\
+		\MakeUppercase{\universitylocation} \\
+		\MakeUppercase{\documentdate}
+	\end{tabular}
+	\end{center}
+}
+\def\abstracttable {
+	\begin{tabular}{l}
+		RESUMEN DE LA MEMORIA PARA OPTAR \\
+		AL TÍTULO DE MAGÍSTER EN CIENCIAS \\
+		DE LA INGENIERÍA \\
+		POR: \MakeUppercase{\documentauthor} \\
+		FECHA: \MakeUppercase{\documentdate} \\
+		PROF. GUÍA: NOMBRE PROFESOR
+	\end{tabular}
+}
+
+% IMPORTACIÓN DEL TEMPLATE
+\input{template}
+
+% INICIO DE LAS PÁGINAS
+\begin{document}
+
+% PORTADA
+\templatePortrait
+
+% CONFIGURACIÓN DE PÁGINA Y ENCABEZADOS
+\templatePagecfg
+
+% RESUMEN O ABSTRACT
+\begin{abstractd}
+	\lipsum[1]
+\end{abstractd}
+
+% DEDICATORIA
+\begin{dedicatory}
+	Una frase de dedicatoria, \\
+	pueden ser dos líneas. \\
+	~ \\
+	\textbf{Saludos}
+\end{dedicatory}
+
+% AGRADECIMIENTOS
+\begin{acknowledgments}
+	\lipsum[1]
+\end{acknowledgments}
+
+% TABLA DE CONTENIDOS - ÍNDICE
+\templateIndex
+
+% CONFIGURACIONES FINALES
+\templateFinalcfg
+
+% ======================= INICIO DEL DOCUMENTO =======================
+
+\input{example} % Ejemplo, se puede borrar
+
+% FIN DEL DOCUMENTO
+\end{document}

@@ -1,0 +1,61 @@
+% Template:     Poster LaTeX
+% Documento:    Archivo principal
+% Versión:      DEV
+% Codificación: UTF-8
+%
+% Autor: Pablo Pizarro R.
+%        pablo@ppizarror.com
+%
+% Manual template: [https://latex.ppizarror.com/poster]
+% Licencia MIT:    [https://opensource.org/licenses/MIT]
+
+% CREACIÓN DEL DOCUMENTO
+\pdfminorversion=7
+\documentclass[
+	spanish, % Idioma: spanish, english, etc.
+	final,
+	xcolor={dvipsnames,table}
+]{beamer}
+
+% INFORMACIÓN DEL DOCUMENTO
+\def\documenttitle {Título del póster}
+
+% IMPORTACIÓN DEL TEMPLATE
+\input{template}
+
+% CONFIGURA BEAMER
+\author{
+	Pablo Pizarro R.\inst{a},
+	John Doe\inst{b}
+}
+\institute[shortinst]{
+	\inst{a} Universidad de Chile \\
+	\inst{b} Universidad 2
+}
+
+% \logoleft{height=3.5cm}{logo.pdf}
+% \logoright{height=3.5cm}{logo.pdf}
+
+\footercontent{
+	\href{https://www.example.com}{Sitio web de la conferencia} \hfill
+	Título de la Conferencia, Santiago, Chile \hfill
+	\insertemail{pablo@ppizarror.com}
+}
+
+% INICIO DE LAS PÁGINAS
+\begin{document}
+
+% CONFIGURACIÓN DE PÁGINA Y ENCABEZADOS
+\templatePagecfg
+
+% CONFIGURACIONES FINALES
+\templateFinalcfg
+
+% ======================= INICIO DEL DOCUMENTO =======================
+
+\begin{poster}
+	\input{example} % Ejemplo, se puede borrar
+\end{poster}
+
+% FIN DEL DOCUMENTO
+\end{document}

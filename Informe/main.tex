@@ -1,0 +1,90 @@
+% Template:     Informe LaTeX
+% Documento:    Archivo principal
+% Versión:      8.4.4 (02/12/2025)
+% Codificación: UTF-8
+%
+% Autor: Pablo Pizarro R.
+%        pablo@ppizarror.com
+%
+% Manual template: [https://latex.ppizarror.com/informe]
+% Licencia MIT:    [https://opensource.org/licenses/MIT]
+
+% CREACIÓN DEL DOCUMENTO
+\documentclass[
+	spanish, % Idioma: spanish, english, etc.
+	letterpaper, oneside
+]{article}
+
+% INFORMACIÓN DEL DOCUMENTO
+\def\documenttitle {Construcción de un Proxy HTTP}
+\def\documentsubtitle {Actividad 1}
+\def\documentsubject {Filtrado de contenido web mediante un proxy}
+
+\def\documentauthor {María Moya G., M. Fernando Saavedra}
+\def\coursename {Redes}
+\def\coursecode {CC4303}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de Ciencias de la Computación}
+\def\universitydepartmentimage {departamentos/dcc}
+\def\universitydepartmentimagecfg {height=1.57cm}
+\def\universitylocation {Santiago de Chile}
+
+% INTEGRANTES, PROFESORES Y FECHAS
+\def\authortable {
+	\begin{tabular}{ll}
+		Integrantes:
+		& \begin{tabular}[t]{l}
+			María Moya G. \\
+			M. Fernando Saavedra
+		\end{tabular} \\
+		Profesor:
+		& \begin{tabular}[t]{l}
+			Ivana Bachmann
+		\end{tabular} \\
+		Auxiliar:
+		& \begin{tabular}[t]{l}
+			Julián Ferreira
+		\end{tabular} \\
+		Ayudantes:
+		& \begin{tabular}[t]{l}
+			Diego García G. \\
+			Valeria Serrano
+		\end{tabular} \\
+		& \\
+		\multicolumn{2}{l}{Fecha de realización: \today} \\
+		\multicolumn{2}{l}{Fecha de entrega: \today} \\
+		\multicolumn{2}{l}{\universitylocation}
+	\end{tabular}
+}
+
+% IMPORTACIÓN DEL TEMPLATE
+\input{template}
+
+% INICIO DE PÁGINAS
+\begin{document}
+
+% PORTADA
+\templatePortrait
+
+% CONFIGURACIÓN DE PÁGINA Y ENCABEZADOS
+\templatePagecfg
+
+% RESUMEN O ABSTRACT
+\begin{abstractd}
+	\lipsum[1] % Párrafo ejemplo, se puede borrar
+\end{abstractd}
+
+% TABLA DE CONTENIDOS - ÍNDICE
+\templateIndex
+
+% CONFIGURACIONES FINALES
+\templateFinalcfg
+
+% ======================= INICIO DEL DOCUMENTO =======================
+
+\input{src/etc/example} % Ejemplo, se puede borrar
+
+% FIN DEL DOCUMENTO
+\end{document}

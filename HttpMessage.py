@@ -1,12 +1,16 @@
-class HttpMessage:
-    """
-    An HTTP message (request or response) in its parsed form.
+"""HTTP wire format over raw sockets: receive, parse and serialize messages."""
 
-    Encapsulates the wire format: receiving from a socket, parsing bytes into
-    its components, and serializing back to bytes.
-    """
+
+class HttpMessage:
+    """An HTTP message, request or response, in its parsed form."""
 
     def __init__(self, start_line, headers=None, body=b"", raw=None):
+        """
+        start_line is {"method", "path", "version"} for a request and
+        {"version", "status_code", "reason"} for a response. body stays bytes
+        (not necessarily text); raw holds the message as received, or None if
+        it was built in memory.
+        """
         self.start_line = start_line
         self.headers = headers if headers is not None else {}
         self.body = body
@@ -16,7 +20,12 @@ class HttpMessage:
     @staticmethod
     def _read_raw(connection_socket, buff_size=4096):
         """
-        Receive a full HTTP message from the connection socket.
+        Read one complete message off a socket, in two phases: recv until
+        "\\r\\n\\r\\n" appears, then until the body reaches Content-Length.
+        This is what allows a buffer smaller than the message.
+
+        A message without Content-Length is assumed to have no body, so
+        chunked or close-delimited responses get truncated.
         """
         full_message = b""
 
@@ -47,20 +56,42 @@ class HttpMessage:
 
     @classmethod
     def receive(cls, connection_socket, buff_size=4096):
-        """
-        Read a full HTTP message from the socket and parse it.
-        Returns None if the connection did not deliver anything.
-        """
+        """Read and parse a message; None if the peer sent nothing."""
         raw = cls._read_raw(connection_socket, buff_size)
         if not raw:
             return None
         return cls.parse(raw)
 
+    @staticmethod
+    def _parse_start_line(line):
+        """
+        Parse the first line. A request line ends with the HTTP version
+        ("GET /path HTTP/1.1"), a status line begins with it, so a leading
+        "HTTP/" gives the direction. Raises ValueError if it is neither.
+        """
+        if line.startswith("HTTP/"):
+            # la reason phrase puede llevar espacios ("Internal Server Error")
+            # o venir vacía, así que solo separamos los dos primeros campos
+            parts = line.split(" ", 2)
+            if len(parts) < 2 or not parts[1].isdigit():
+                raise ValueError(f"status line HTTP mal formada: {line!r}")
+            return {
+                "version": parts[0],
+                "status_code": int(parts[1]),
+                "reason": parts[2] if len(parts) == 3 else "",
+            }
+
+        # una request line tiene exactamente 3 campos
+        parts = line.split(" ")
+        if len(parts) != 3:
+            raise ValueError(f"request line HTTP mal formada: {line!r}")
+        return {"method": parts[0], "path": parts[1], "version": parts[2]}
+
     @classmethod
     def parse(cls, http_message):
         """
-        Parse an HTTP message into its components.
-        Returns an HttpMessage with 'start_line', 'headers' and 'body'.
+        Split a message into start line, headers and body, keeping the
+        original bytes in raw. Only the headers are decoded.
         """
         if b"\r\n\r\n" in http_message:
             header, body = http_message.split(b"\r\n\r\n", 1)
@@ -71,13 +102,7 @@ class HttpMessage:
         header_str = header.decode("utf-8")
         header_lines = header_str.split("\r\n")
 
-        start_line_parts = header_lines[0].split(" ")
-        if len(start_line_parts) == 3:
-            start_line = {
-                "method": start_line_parts[0],
-                "path": start_line_parts[1],
-                "version": start_line_parts[2],
-            }
+        start_line = cls._parse_start_line(header_lines[0])
 
         headers = {}
         for line in header_lines[1:]:
@@ -91,7 +116,8 @@ class HttpMessage:
     def response(cls, status_code, reason, body,
                  content_type="text/html; charset=utf-8", extra_headers=None):
         """
-        Build an HTTP response message.
+        Build a response from scratch. A str body is encoded first, so that
+        Content-Length counts bytes and not characters.
         """
         if isinstance(body, str):
             body = body.encode('utf-8')
@@ -114,7 +140,8 @@ class HttpMessage:
 
     def to_bytes(self):
         """
-        Convert this message back into an HTTP message (in bytes).
+        Serialize back to bytes. Content-Length is recomputed, but only if the
+        message already had it, so an edited body keeps a truthful length.
         """
         start_line = self.start_line
         if "method" in start_line:
@@ -134,3 +161,13 @@ class HttpMessage:
         lines = [first_line] + [f"{key}: {value}" for key, value in headers.items()]
 
         return ("\r\n".join(lines) + "\r\n\r\n").encode('utf-8') + body
+
+
+def parse_HTTP_message(http_message: bytes) -> HttpMessage:
+    """Bytes to structure. The name the assignment asks for."""
+    return HttpMessage.parse(http_message)
+
+
+def create_HTTP_message(message: HttpMessage) -> bytes:
+    """Structure back to bytes. The inverse of parse_HTTP_message."""
+    return message.to_bytes()

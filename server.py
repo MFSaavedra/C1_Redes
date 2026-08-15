@@ -1,5 +1,5 @@
 import socket
-from utils import HttpMessage
+from HttpMessage import HttpMessage
 
 if __name__ == "__main__":
      new_socket_address = ('0.0.0.0', 8000)

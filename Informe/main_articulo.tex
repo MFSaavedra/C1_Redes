@@ -1,0 +1,62 @@
+% Template:     Articulo LaTeX
+% Documento:    Archivo principal
+% Versión:      DEV
+% Codificación: UTF-8
+%
+% Autor: Pablo Pizarro R.
+%        pablo@ppizarror.com
+%
+% Manual template: [https://latex.ppizarror.com/articulo]
+% Licencia MIT:    [https://opensource.org/licenses/MIT]
+
+% CREACIÓN DEL DOCUMENTO
+\documentclass[
+	spanish, % Idioma: spanish, english, etc.
+	letterpaper, oneside
+]{article}
+
+% INFORMACIÓN DEL DOCUMENTO
+\def\documenttitle {Título del artículo}
+\def\documentsubtitle {}
+\def\documentdate {\today}
+\def\journalname {Revista, conferencia del artículo}
+
+% IMPORTACIÓN DEL TEMPLATE
+\input{template}
+
+% CONFIGURA LOS AUTORES
+\def\authorshf {P. Pizarro et al.} % Nombres en header-footer
+
+% Otras funciones:
+%	\addauthornonumber{Nombre autor}
+%	\addauthorsamenumber[ORCID]{Nombre autor}{Institución}{email}
+\addauthor[0000-0002-8745-6638]{Pablo Pizarro R.}{MSc. en Ingeniería, Universidad de Chile}{pablo@ppizarror.com}
+\addauthor{Segundo Autor}{Profesor Asociado, Universidad de Chile}{nombre2@email.com}
+\addauthor{Tercer Autor}{Profesor, Nombre de la institución}{}
+
+% INICIO DE PÁGINAS
+\begin{document}
+
+% CONFIGURACIÓN DE PÁGINA Y ENCABEZADOS
+\templatePagecfg
+
+% CONFIGURACIONES FINALES
+\templateFinalcfg
+
+% ======================= INICIO DEL DOCUMENTO =======================
+
+% Título y nombre del autor
+\inserttitle
+
+% Resumen o Abstract
+\begin{abstract}
+	\lipsum[1]
+\end{abstract}
+
+% Contenido
+\begin{multicols}{2}
+	\input{example} % Ejemplo, se puede borrar
+\end{multicols}
+
+% FIN DEL DOCUMENTO
+\end{document}

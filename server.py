@@ -1,7 +1,7 @@
 import socket
 import json
 import sys
-from utils import build_HTTP_response, receive_full_message, parse_HTTP_message, create_HTTP_message
+from HttpMessage import HttpMessage
 
 if __name__ == "__main__":
      if len(sys.argv) < 2:
@@ -12,7 +12,7 @@ if __name__ == "__main__":
      try:
          with open(config_path, "r", encoding="utf-8") as f:
              config = json.load(f)
-             user_name = config.get("user_name", "Nombre por defecto")
+             user_name = config.get("user", "Nombre por defecto")
      except Exception as e:
          print(f"Error al leer el archivo de configuración: {e}")
          sys.exit(1)
@@ -31,17 +31,18 @@ if __name__ == "__main__":
          new_socket, new_socket_address = server_socket.accept()
          print(f' -> Se ha establecido una conexión con {new_socket_address}')
          
-         recv_message = receive_full_message(new_socket)
+         message = HttpMessage.receive(new_socket)
 
-         if recv_message:
+         if message:
              print("Request en crudo:")
-             print(recv_message)
+             print(message.raw)
 
-             parsed_message = parse_HTTP_message(recv_message)
-             print(f' -> Se ha recibido el siguiente mensaje: {parsed_message}')
+             print(f' -> Se ha recibido el siguiente mensaje: {message.start_line} {message.headers}')
 
-             response = build_HTTP_response(200, "OK", "<html><body><h1>webiwabo</h1></body></html>", user_name=user_name)
-             new_socket.sendall(response)
+             response = HttpMessage.response(
+                 200, "OK", "<html><body><h1>webiwabo</h1></body></html>",
+                 extra_headers={"X-ElQuePregunta": user_name})
+             new_socket.sendall(response.to_bytes())
 
          new_socket.close()
          print(f"conexión con {new_socket_address} ha sido cerrada")

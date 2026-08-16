@@ -4,46 +4,63 @@ import sys
 from HttpMessage import HttpMessage
 
 if __name__ == "__main__":
-     if len(sys.argv) < 2:
-         print("Uso: python3 server.py <config_file>")
-         sys.exit(1)
+    if len(sys.argv) < 2:
+        print("Uso: python3 proxy.py <config_file>")
+        sys.exit(1)
 
-     config_path = sys.argv[1]
-     try:
-         with open(config_path, "r", encoding="utf-8") as f:
-             config = json.load(f)
-             user_name = config.get("user", "Nombre por defecto")
-     except Exception as e:
-         print(f"Error al leer el archivo de configuración: {e}")
-         sys.exit(1)
+    config_path = sys.argv[1]
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+            user_name = config.get("user_name", "Nombre por defecto")
+    except Exception as e:
+        print(f"Error al leer el archivo de configuración: {e}")
+        sys.exit(1)
+        
+    listen_address = ('0.0.0.0', 8000)
+    listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listen_socket.bind(listen_address)
+    listen_socket.listen(3)
 
-     new_socket_address = ('0.0.0.0', 8000)
+    print(f"Proxy HTTP escuchando en http://{listen_address[0]}:{listen_address[1]}")
 
-     print('Creando socket - Servidor')
-     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-     server_socket.bind(new_socket_address)
-     server_socket.listen(3)
- 
-     print('... Esperando clientes')
-     print(f' -> Servidor escuchando en http://{new_socket_address[0]}:{new_socket_address[1]}')
+    while True:
+        client_socket, client_address = listen_socket.accept()
+        print(f"\n-> Conexión recibida desde cliente: {client_address}")
 
-     while True:
-         new_socket, new_socket_address = server_socket.accept()
-         print(f' -> Se ha establecido una conexión con {new_socket_address}')
-         
-         message = HttpMessage.receive(new_socket)
+        try:
+            request_msg = HttpMessage.receive(client_socket)
+            if not request_msg:
+                client_socket.close()
+                continue
 
-         if message:
-             print("Request en crudo:")
-             print(message.raw)
+            headers = request_msg.headers
+            host_header = headers.get("Host") or headers.get("host")
 
-             print(f' -> Se ha recibido el siguiente mensaje: {message.start_line} {message.headers}')
+            if not host_header:
+                print("No se encontró el header Host en la petición.")
+                client_socket.close()
+                continue
 
-             response = HttpMessage.response(
-                 200, "OK", "<html><body><h1>webiwabo</h1></body></html>",
-                 extra_headers={"X-ElQuePregunta": user_name})
-             new_socket.sendall(response.to_bytes())
+            if ":" in host_header:
+                server_host, server_port = host_header.split(":", 1)
+                server_port = int(server_port)
+            else:
+                server_host = host_header
+                server_port = 80
 
-         new_socket.close()
-         print(f"conexión con {new_socket_address} ha sido cerrada")
- 
+            print(f"-> Reenviando mensaje a servidor destino: {server_host}:{server_port}")
+
+            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server_socket.connect((server_host, server_port))
+            server_socket.sendall(request_msg.to_bytes())
+            response_msg = HttpMessage.receive(server_socket)
+            server_socket.close()
+
+            if response_msg:
+                client_socket.sendall(response_msg.to_bytes())
+
+        except Exception as e:
+            print(f"-> Error durante el procesamiento: {e}")
+        finally:
+            client_socket.close()

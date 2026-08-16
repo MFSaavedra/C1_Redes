@@ -13,10 +13,13 @@ if __name__ == "__main__":
         with open(config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
             user_name = config.get("user_name", "Nombre por defecto")
+            user_email = config.get("user", "")
+            blocked_domains = config.get("blocked", [])
+            forbidden_words = config.get("forbidden_words", [])
     except Exception as e:
         print(f"Error al leer el archivo de configuración: {e}")
         sys.exit(1)
-        
+
     listen_address = ('0.0.0.0', 8000)
     listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listen_socket.bind(listen_address)

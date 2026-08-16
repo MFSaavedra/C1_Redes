@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
             path = request_msg.start_line.get("path", "/")
 
-            if path == "/gato.jpg":
+            if path.endswith("/gato.jpg"):
                 if os.path.exists("gato.jpg"):
                     with open("gato.jpg", "rb") as f:
                         image_data = f.read()

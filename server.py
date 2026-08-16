@@ -1,3 +1,4 @@
+import os
 import socket
 import json
 import sys
@@ -5,7 +6,7 @@ from HttpMessage import HttpMessage
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Uso: python3 proxy.py <config_file>")
+        print("Uso: python3 server.py <config_file>")
         sys.exit(1)
 
     config_path = sys.argv[1]
@@ -37,6 +38,21 @@ if __name__ == "__main__":
                 client_socket.close()
                 continue
 
+            path = request_msg.start_line.get("path", "/")
+
+            if path == "/gato.jpg":
+                if os.path.exists("gato.jpg"):
+                    with open("gato.jpg", "rb") as f:
+                        image_data = f.read()
+                    response_msg = HttpMessage(
+                        start_line={"version": "HTTP/1.1", "status_code": 200, "reason": "OK"},
+                        headers={"Content-Type": "image/jpeg", "Content-Length": str(len(image_data))},
+                        body=image_data
+                    )
+                    client_socket.sendall(response_msg.to_bytes())
+                client_socket.close()
+                continue
+
             headers = request_msg.headers
             host_header = headers.get("Host") or headers.get("host")
 
@@ -51,6 +67,42 @@ if __name__ == "__main__":
             else:
                 server_host = host_header
                 server_port = 80
+
+            if path.startswith("http://") or path.startswith("https://"):
+                full_url = path
+            else:
+                full_url = f"{server_host}{path}"
+
+            is_blocked = False
+            for blocked in blocked_domains:
+                if blocked in full_url:
+                    is_blocked = True
+                    break
+
+            if is_blocked:
+                print(f"-> [403 FORBIDDEN] Solicitud bloqueada hacia: {full_url}")
+                
+                html_body = (
+                    "<html><body>"
+                    "<h1>403 Forbidden - Acceso Prohibido</h1>"
+                    "<p>El acceso a esta ruta esta bloqueado por el proxy.</p>"
+                    "<img src='/gato.jpg' alt='Acceso Denegado'>"
+                    "</body></html>"
+                )
+                html_bytes = html_body.encode("utf-8")
+
+                forbidden_msg = HttpMessage(
+                    start_line={"version": "HTTP/1.1", "status_code": 403, "reason": "Forbidden"},
+                    headers={
+                        "Content-Type": "text/html; charset=utf-8",
+                        "Content-Length": str(len(html_bytes))
+                    },
+                    body=html_bytes
+                )
+                
+                client_socket.sendall(forbidden_msg.to_bytes())
+                client_socket.close()
+                continue
 
             print(f"-> Reenviando mensaje a servidor destino: {server_host}:{server_port}")
 

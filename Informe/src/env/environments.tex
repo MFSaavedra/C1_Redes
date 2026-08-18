@@ -6,7 +6,7 @@
 % Autor: Pablo Pizarro R.
 %        pablo@ppizarror.com
 %
-% Manual template: [https://latex.ppizarror.com/informe]
+% Manual template: [https://template-latex.github.io/informe]
 % Licencia MIT:    [https://opensource.org/licenses/MIT]
 
 % Crea una sección de referencias solo para bibtex
@@ -104,10 +104,15 @@
 	\global\def\GLOBALtitleinitsubsubsection {false}%
 	\global\def\GLOBALtitleinitsubsubsubsection {false}%
 	\bookmarksetupnext{level={\thetemplateBookmarksLevelPrev}} % Restablece índice marcador
-	\bookmarksetup{%
-		numbered={\cfgpdfsecnumbookmarks},
-		openlevel={\cfgbookmarksopenlevel}
-	}%
+	% bookmark valida 'numbered' como booleano literal (true/false), no una macro:
+	% se expanden los valores antes de pasarlos a \bookmarksetup.
+	\begingroup
+	\edef\x{\endgroup
+		\noexpand\bookmarksetup{%
+			numbered={\cfgpdfsecnumbookmarks},%
+			openlevel={\cfgbookmarksopenlevel}%
+		}%
+	}\x%
 	\endgroup%
 	\global\def\GLOBALenvappendix {false}%
 	\global\def\GLOBALtitlerequirechapter {false}%
@@ -334,7 +339,7 @@
 			\ContinuedFloat%
 			\global\def\GLOBALenvimagecf {false}%
 			\def\envimagescaptioncf {true}%
-		}{}%
+		}{\ifdefined\HCode\ifthenelse{\equal{\envimagescaptionvar}{}}{}{\refstepcounter{figure}}\fi}%
 		\corevspacevarcm{\marginimagemulttop}%
 		}{%
 		\setcaptionmargincm{\captionlrmargin}%
@@ -345,6 +350,7 @@
 			\ifthenelse{\equal{\envimagescaptioncf}{true}}{%
 				\caption[]{\envimagescaptionvar\envimageslabelvar}%
 			}{%
+				\ifdefined\HCode\addtocounter{figure}{-1}\fi%
 				\caption{\envimagescaptionvar\envimageslabelvar}%
 			}%
 		}%
@@ -387,7 +393,7 @@
 			\ContinuedFloat%
 			\global\def\GLOBALenvimagecf {false}%
 			\def\envimagescaptioncf {true}%
-		}{}%
+		}{\ifdefined\HCode\ifthenelse{\equal{\envimagescaptionvar}{}}{}{\refstepcounter{figure}}\fi}%
 		\corevspacevarcm{\marginimagemulttop}%
 	}{%
 		\setcaptionmargincm{\captionlrmargin}%
@@ -398,6 +404,7 @@
 			\ifthenelse{\equal{\envimagescaptioncf}{true}}{%
 				\caption[]{\envimagescaptionvar\envimageslabelvar}%
 			}{%
+				\ifdefined\HCode\addtocounter{figure}{-1}\fi%
 				\caption{\envimagescaptionvar\envimageslabelvar}%
 			}%
 		}%

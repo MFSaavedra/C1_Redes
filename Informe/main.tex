@@ -16,9 +16,9 @@
 ]{article}
 
 % INFORMACIÓN DEL DOCUMENTO
-\def\documenttitle {Construcción de un Proxy HTTP}
+\def\documenttitle {Actividad 1}
 \def\documentsubtitle {Actividad 1}
-\def\documentsubject {Filtrado de contenido web mediante un proxy}
+\def\documentsubject {HTTP}
 
 \def\documentauthor {María Moya G., M. Fernando Saavedra}
 \def\coursename {Redes}
@@ -72,9 +72,9 @@
 \templatePagecfg
 
 % RESUMEN O ABSTRACT
-\begin{abstractd}
-	\lipsum[1] % Párrafo ejemplo, se puede borrar
-\end{abstractd}
+%\begin{abstractd}
+%	\lipsum[1] % Párrafo ejemplo, se puede borrar
+%\end{abstractd}
 
 % TABLA DE CONTENIDOS - ÍNDICE
 \templateIndex
@@ -84,7 +84,78 @@
 
 % ======================= INICIO DEL DOCUMENTO =======================
 
-\input{src/etc/example} % Ejemplo, se puede borrar
+\section{HttpMessage.py}
+Se diseña la clase HttpMessage con el objetivo de concentrar la lógica en un solo objeto, siguiendo principios de OOP.
+Un programa cliente, servidor o proxy puede enviar o recibir mensajes Http con esta misma clase.
+
+Nuestro método \textbf{HttpMessage.parse} se encarga de extraer el HEAD del mensaje recibido en bytes, decodificarlo y almacenar cada header con su valor en un HttpMessage.
+BODY también se guarda, sin decodificar, en la misma clase.
+
+\subsection{¿Qué debe extraer \texttt{parse}?}
+Un mensaje HTTP se compone de HEAD y BODY separados por \verb|\r\n\r\n|, donde el HEAD es texto y el BODY no necesariamente.
+Siguiendo esa estructura, \texttt{parse} extrae:
+
+\begin{itemize}
+	\item \textbf{Start line}: es la única línea cuyo formato depende de la dirección del mensaje. Si parte con \texttt{HTTP/} es una respuesta y se extraen \texttt{version}, \texttt{status\_code} y \texttt{reason}; en caso contrario es una request y se extraen \texttt{method}, \texttt{path} y \texttt{version}.
+	\item \textbf{Headers}: cada línea restante del HEAD tiene el formato \texttt{Nombre: valor} y se guarda en un diccionario. Para esta actividad importan \texttt{Host} (dominio y puerto del servidor destino, 80 por defecto), \texttt{Content-Length} (cuántos bytes de BODY hay que leer), \texttt{Content-Type} (si el BODY es texto reemplazable o binario) y \texttt{Connection}.
+	\item \textbf{Body}: todo lo que sigue al \verb|\r\n\r\n|, sin decodificar, porque puede ser binario (por ejemplo, una imagen).
+	\item \textbf{Bytes originales} (\texttt{raw}): permiten reenviar el mensaje tal como llegó y depurar.
+\end{itemize}
+
+El criterio fue extraer lo mínimo que el proxy necesita para decidir y para reconstruir el mensaje: \texttt{Host} y \texttt{path} para saber a qué servidor conectarse y si está bloqueado, \texttt{Content-Length} para saber cuándo terminó el mensaje cuando el buffer es más pequeño que este, y la start line para rearmar el mensaje o reemplazarla por un \texttt{403}.
+
+No se extrae ni se normaliza el resto: los nombres de headers se guardan tal como llegan, un header repetido sobrescribe al anterior y se asume \texttt{Content-Length} (no se soporta \texttt{Transfer-Encoding: chunked}).
+
+\subsection{Creación de mensajes}
+\texttt{create\_HTTP\_message} (\texttt{HttpMessage.to\_bytes}) hace el camino inverso: rearma la start line según si el mensaje es request o response, escribe los headers como \texttt{Nombre: valor} separados por \verb|\r\n|, cierra el HEAD con \verb|\r\n\r\n| y concatena el BODY en bytes.
+Si el mensaje declaraba \texttt{Content-Length}, este se recalcula al serializar, de modo que un BODY editado por el proxy (reemplazo de palabras) mantenga un largo consistente.
+
+\section{server.py}
+El servidor de la parte 1 recibe la ruta de su archivo de configuración JSON como argumento (\texttt{sys.argv}) y de ahí obtiene el nombre del usuario.
+Escucha en \texttt{(0.0.0.0, 8000)}, lee la request con \texttt{HttpMessage.receive} y responde con un \texttt{200 OK} que lleva un HTML mínimo, agregando el header \texttt{X-ElQuePregunta} con el nombre leído del JSON.
+En la parte 2 este mismo archivo se transforma en el proxy.
+
+\section{Proxy}
+
+\subsection{Diagrama de flujo y sockets}
+\textbf{[TODO: incluir el diagrama de flujo del proxy (\texttt{\textbackslash insertimage[\textbackslash label\{img:proxy\}]\{proxy-diagrama.png\}\{scale=0.5\}\{Flujo del proxy.\}}, con la imagen en \texttt{Informe/img/}) y explicar brevemente cuántos y cuáles sockets necesita el proxy para comunicarse con el cliente y con el servidor. Sin este diagrama se descuenta puntaje del informe.]}
+
+\subsection{Bloqueo de dominios prohibidos}
+\textbf{[TODO: describir cómo se detecta un dominio bloqueado a partir del JSON y cómo se responde con \texttt{403} más el HTML que muestra la imagen local. Responder explícitamente: ¿cuántos ciclos de comunicación HTTP son necesarios para mostrar una imagen en un navegador?]}
+
+\subsection{Header X-ElQuePregunta}
+\textbf{[TODO: describir cómo el proxy agrega el header \texttt{X-ElQuePregunta} a la request que envía al servidor cuando el destino no está bloqueado.]}
+
+\subsection{Reemplazo de palabras prohibidas}
+\textbf{[TODO: describir cómo se reemplazan las \texttt{forbidden\_words} del JSON en el BODY de la respuesta y por qué el \texttt{Content-Length} debe recalcularse tras el reemplazo.]}
+
+\subsection{Recepción con buffer pequeño}
+\textbf{[TODO: describir la lectura en dos fases de \texttt{HttpMessage.\_read\_raw} y responder explícitamente: ¿cómo sé si llegó el mensaje completo? ¿Qué pasa si los headers no caben en mi buffer? ¿Cómo sé que el HEAD llegó completo? ¿Y el BODY?]}
+
+\section{Pruebas}
+\textbf{[TODO: anotar las observaciones de las pruebas con el navegador configurado con el proxy:]}
+\begin{enumerate}
+	\item \textbf{[TODO: \texttt{http://cc4303.bachmann.cl/secret} ya no se ve; se recibe un \texttt{403} y se muestra la imagen local.]}
+	\item \textbf{[TODO: el contenido de \texttt{http://cc4303.bachmann.cl/} cambia según los headers modificados.]}
+	\item \textbf{[TODO: \texttt{http://cc4303.bachmann.cl/} y \texttt{/replace} se ven igual salvo por las palabras prohibidas censuradas.]}
+	\item \textbf{[TODO: buffer de recepción menor que el mensaje pero mayor que el área de headers.]}
+	\item \textbf{[TODO: buffer de recepción menor que el área de headers pero mayor que la start line.]}
+\end{enumerate}
+
+\section{Ejecución y repositorio}
+El código se ejecuta pasando el archivo de configuración como argumento:
+
+\begin{verbatim}
+python3 server.py config.json
+curl example.com -x IP_VM:8000
+\end{verbatim}
+
+Repositorio: \url{https://github.com/MFSaavedra/C1_Redes}
+
+\textbf{[TODO: verificar que el equipo docente tenga acceso al repositorio y completar el detalle de ejecución (IP y puerto usados, cómo configurar el proxy en el navegador).]}
+
+\section{Declaración de uso de IA}
+\textbf{[TODO: declarar explícitamente el uso o no uso de IA/LLMs, indicando el modelo utilizado y los lugares donde se usó (código, redacción, etc.). Sin esta declaración no se considera el puntaje del informe.]}
 
 % FIN DEL DOCUMENTO
 \end{document}

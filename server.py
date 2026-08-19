@@ -103,7 +103,7 @@ if __name__ == "__main__":
                 client_socket.sendall(forbidden_msg.to_bytes())
                 client_socket.close()
                 continue
-            
+
             request_msg.headers["X-ElQuePregunta"] = user_name
 
             print(f"-> Reenviando mensaje a servidor destino: {server_host}:{server_port}")
@@ -113,6 +113,17 @@ if __name__ == "__main__":
             server_socket.sendall(request_msg.to_bytes())
             response_msg = HttpMessage.receive(server_socket)
             server_socket.close()
+
+            if response_msg and response_msg.body:
+                try:
+                    body_text = response_msg.body.decode("utf-8")
+                    for item in forbidden_words:
+                        for target, replacement in item.items():
+                            body_text = body_text.replace(target, replacement)
+                    response_msg.body = body_text.encode("utf-8")
+                except Exception as e:
+                    print(f"-> Error al procesar el cuerpo de la respuesta: {e}")
+                    pass
 
             if response_msg:
                 client_socket.sendall(response_msg.to_bytes())

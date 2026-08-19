@@ -103,6 +103,8 @@ if __name__ == "__main__":
                 client_socket.sendall(forbidden_msg.to_bytes())
                 client_socket.close()
                 continue
+            
+            request_msg.headers["X-ElQuePregunta"] = user_name
 
             print(f"-> Reenviando mensaje a servidor destino: {server_host}:{server_port}")
 

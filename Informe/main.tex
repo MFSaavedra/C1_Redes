@@ -155,16 +155,40 @@ Host: IP_VM:8000
 \end{verbatim}
 
 \subsection{Bloqueo de dominios prohibidos}
-\textbf{[TODO: describir cómo se detecta un dominio bloqueado a partir del JSON y cómo se responde con \texttt{403} más el HTML que muestra la imagen local. Responder explícitamente: ¿cuántos ciclos de comunicación HTTP son necesarios para mostrar una imagen en un navegador?]}
+La detección de dominios bloqueados se realiza leyendo desde el archivo JSON la clave "blocked", que contiene los dominios que no están permitidos. Cuando llega una petición HTTP se obtiene el dominio desde el header Host, de la forma antes descrita, y se construye la URL completa. Luego, el proxy recorre la lista de dominios bloqueados y verifica si alguno está contenido en la URL solicitada: de encontrarse una coincidencia, la petición es bloqueada y el proxy responde directamente al cliente con un código HTTP 403 Forbidden. La respuesta contiene un HTML que incluye una etiqueta <img src="/gato.jpg">, indicando al navegador que debe solicitar la imagen. Esta segunda solicitud, cuyo path es /gato.jpg, debe ser reconocida por el proxy antes de intentar reenviarla al servidor de destino, ya que la imagen se encuentra almacenada localmente en el proxy y no en el servidor solicitado originalmente. Por lo tanto el proxy detecta esta ruta, busca el archivo gato.jpg localmente y responde directamente al navegador con la imagen, evitando que la solicitud sea enviada al servidor de destino.
+
+Luego, para poder mostrar la imagen se necesitan 2 ciclos de comunicación HTTP: primero, un ciclo para solicitar y recibir la página HTML bloqueada (con el 403), y luego un segundo ciclo en el que el navegador solicita /gato.jpg y el proxy le responde con la imagen almacenada localmente.
 
 \subsection{Header X-ElQuePregunta}
-\textbf{[TODO: describir cómo el proxy agrega el header \texttt{X-ElQuePregunta} a la request que envía al servidor cuando el destino no está bloqueado.]}
+Cuando el destino no está bloqueado, el proxy agrega a la petición el header \texttt{X-ElQuePregunta}, cuyo valor corresponde al nombre del usuario obtenido desde el archivo JSON. Esto se realiza antes de reenviar la petición al servidor destino, mediante \texttt{request\_msg.headers["X-ElQuePregunta"] = user\_name}. Luego el proxy envía la petición modificada al servidor a través del socket correspondiente.
 
 \subsection{Reemplazo de palabras prohibidas}
-\textbf{[TODO: describir cómo se reemplazan las \texttt{forbidden\_words} del JSON en el BODY de la respuesta y por qué el \texttt{Content-Length} debe recalcularse tras el reemplazo.]}
+Una vez recibida la respuesta del servidor destino, el proxy revisa su BODY para reemplazar las palabras indicadas en la clave \texttt{forbidden\_words} del archivo JSON. Para esto primero convierte el BODY desde bytes a texto utilizando UTF-8, luego, recorre las palabras prohibidas y reemplaza cada una por el texto correspondiente. Finalmente convierte nuevamente el BODY modificado a bytes antes de enviarlo al cliente.
+
+Es necesario recalcular el \texttt{Content-Length} después del reemplazo, ya que este header indica la cantidad de bytes que contiene el BODY. Como el reemplazo puede cambiar el tamaño del contenido, el valor original de \texttt{Content-Length} podría dejar de coincidir con la cantidad real de bytes del BODY. Por lo tanto se debe actualizar con el nuevo tamaño antes de enviar la respuesta al cliente.
 
 \subsection{Recepción con buffer pequeño}
 \textbf{[TODO: describir la lectura en dos fases de \texttt{HttpMessage.\_read\_raw} y responder explícitamente: ¿cómo sé si llegó el mensaje completo? ¿Qué pasa si los headers no caben en mi buffer? ¿Cómo sé que el HEAD llegó completo? ¿Y el BODY?]}
+La función \texttt{HttpMessage.\_read\_raw} realiza la recepción del mensaje en dos fases: primero se leen los bytes necesarios para obtener los headers, identificando el final de esta sección mediante la secuencia \texttt{\textbackslash r\textbackslash n\textbackslash r\textbackslash n}. Una vez obtenidos los headers, se determina la cantidad de bytes del BODY a partir del header \texttt{Content-Length}, y se continúa leyendo hasta recibir la cantidad indicada.
+
+Para saber si el mensaje completo llegó se debe haber recibido el final de los headers y, si existe un BODY, la cantidad de bytes indicada por \texttt{Content-Length}. Si los headers no caben en un solo buffer se realizan múltiples lecturas y se van acumulando los bytes recibidos hasta encontrar \texttt{\textbackslash r\textbackslash n\textbackslash r\textbackslash n}. De esta forma, el tamaño del buffer no determina el tamaño máximo de los headers.
+
+La sección de headers se considera completa al encontrar \texttt{\textbackslash r\textbackslash n\textbackslash r\textbackslash n}. En cuanto al BODY, se considera completo cuando se han recibido exactamente los bytes indicados por \texttt{Content-Length}. Por lo tanto, tanto los headers como el BODY pueden requerir varias llamadas a \texttt{recv()} cuando se utiliza un buffer pequeño.
+
+\section{Pruebas}
+Las pruebas se realizaron con el navegador configurado para utilizar el proxy HTTP. Se obtuvieron las siguientes observaciones:
+
+\begin{enumerate}
+    \item \textbf{\texttt{http://cc4303.bachmann.cl/secret}:} la página ya no se muestra, ya que el proxy detecta el dominio o ruta bloqueada y responde con un \texttt{403 Forbidden}. Además, se muestra la imagen \texttt{gato.jpg} almacenada localmente en el proxy.
+
+    \item \textbf{\texttt{http://cc4303.bachmann.cl/}:} el contenido recibido cambia de acuerdo con los headers modificados por el proxy, permitiendo comprobar que el header \texttt{X-ElQuePregunta} fue agregado correctamente a la petición enviada al servidor.
+
+    \item \textbf{\texttt{http://cc4303.bachmann.cl/} y \texttt{/replace}:} ambas páginas se muestran de forma equivalente, excepto por las palabras prohibidas, que son reemplazadas según lo especificado en el archivo JSON.
+
+    \item \textbf{Buffer de recepción menor que el mensaje pero mayor que el área de headers:} los headers se reciben completamente en una primera lectura, mientras que el BODY requiere lecturas adicionales hasta completar la cantidad de bytes indicada por \texttt{Content-Length}.
+
+    \item \textbf{Buffer de recepción menor que el área de headers pero mayor que la start line:} los headers deben recibirse mediante varias llamadas a \texttt{recv()}, acumulando los bytes hasta encontrar la secuencia que indica el final de los headers. Una vez obtenidos, se procede a leer el BODY utilizando \texttt{Content-Length}.
+\end{enumerate}
 
 \section{Pruebas}
 \textbf{[TODO: anotar las observaciones de las pruebas con el navegador configurado con el proxy:]}

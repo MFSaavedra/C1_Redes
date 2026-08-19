@@ -121,6 +121,7 @@ if __name__ == "__main__":
                         for target, replacement in item.items():
                             body_text = body_text.replace(target, replacement)
                     response_msg.body = body_text.encode("utf-8")
+                    response_msg.headers["Content-Length"] = str(len(response_msg.body))
                 except Exception as e:
                     print(f"-> Error al procesar el cuerpo de la respuesta: {e}")
                     pass

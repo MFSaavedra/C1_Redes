@@ -54,13 +54,23 @@
 		\end{tabular} \\
 		& \\
 		\multicolumn{2}{l}{Fecha de realización: \today} \\
-		\multicolumn{2}{l}{Fecha de entrega: \today} \\
+		\multicolumn{2}{l}{Fecha de entrega: 3 de septiembre de 2026} \\
 		\multicolumn{2}{l}{\universitylocation}
 	\end{tabular}
 }
 
 % IMPORTACIÓN DEL TEMPLATE
 \input{template}
+
+% CONVENCIÓN TIPOGRÁFICA
+% Monoespaciado SOLO para lo que existe literalmente en el código, en el archivo
+% de configuración o en el flujo de bytes. Los nombres de headers y los códigos
+% de estado HTTP se escriben en texto normal (su forma Capitalizada-Con-Guion ya
+% los distingue). Cambiar una sola definición reetiqueta todo el informe.
+\newcommand{\code}[1]{\texttt{#1}}    % identificadores, funciones, archivos, comandos
+\newcommand{\cfgkey}[1]{\texttt{#1}}  % claves del archivo de configuración JSON
+\newcommand{\hdr}[1]{#1}              % nombres de headers HTTP
+\newcommand{\status}[1]{#1}           % códigos de estado HTTP
 
 % INICIO DE PÁGINAS
 \begin{document}
@@ -88,31 +98,30 @@
 Se diseña la clase HttpMessage con el objetivo de concentrar la lógica en un solo objeto, siguiendo principios de OOP.
 Un programa cliente, servidor o proxy puede enviar o recibir mensajes Http con esta misma clase.
 
-Nuestro método \textbf{HttpMessage.parse} se encarga de extraer el HEAD del mensaje recibido en bytes, decodificarlo y almacenar cada header con su valor en un HttpMessage.
-BODY también se guarda, sin decodificar, en la misma clase.
-
-\subsection{¿Qué debe extraer \texttt{parse}?}
+Nuestro método \code{HttpMessage.parse} se encarga de extraer el HEAD del mensaje recibido en bytes, decodificarlo y almacenar cada header con su valor en un HttpMessage.
+BODY también se guarda, sin decodificar, en la misma clase. \code{HttpMessage.to\_bytes} hace el camino inverso: serializa un HttpMessage a bytes, listo para enviar por un socket.
+\subsection{¿Qué debe extraer \code{parse}?}
 Un mensaje HTTP se compone de HEAD y BODY separados por \verb|\r\n\r\n|, donde el HEAD es texto y el BODY no necesariamente.
-Siguiendo esa estructura, \texttt{parse} extrae:
+Siguiendo esa estructura, \code{parse} extrae:
 
 \begin{itemize}
-	\item \textbf{Start line}: es la única línea cuyo formato depende de la dirección del mensaje. Si parte con \texttt{HTTP/} es una respuesta y se extraen \texttt{version}, \texttt{status\_code} y \texttt{reason}; en caso contrario es una request y se extraen \texttt{method}, \texttt{path} y \texttt{version}.
-	\item \textbf{Headers}: cada línea restante del HEAD tiene el formato \texttt{Nombre: valor} y se guarda en un diccionario. Se decidió utilizar un diccionario para facilitar el acceso a los headers por nombre, por ejemplo, para obtener directamente los headers \verb|Host| y \verb|Content-Length|, sin recorrer nuevamente todas las líneas del HEAD. Para esta actividad importan \texttt{Host} (dominio y puerto del servidor destino, 80 por defecto), \texttt{Content-Length} (cuántos bytes de BODY hay que leer), \texttt{Content-Type} (si el BODY es texto reemplazable o binario) y \texttt{Connection}.
+	\item \textbf{Start line}: es la única línea cuyo formato depende de la dirección del mensaje. Si parte con \code{HTTP/} es una respuesta y se extraen \code{version}, \code{status\_code} y \code{reason}; en caso contrario es una request y se extraen \code{method}, \code{path} y \code{version}.
+	\item \textbf{Headers}: cada línea restante del HEAD tiene el formato \code{Nombre: valor} y se guarda en un diccionario. Se decidió utilizar un diccionario para facilitar el acceso a los headers por nombre, por ejemplo, para obtener directamente los headers \hdr{Host} y \hdr{Content-Length}, sin recorrer nuevamente todas las líneas del HEAD. Para esta actividad importan \hdr{Host} (dominio y puerto del servidor destino, 80 por defecto), \hdr{Content-Length} (cuántos bytes de BODY hay que leer), \hdr{Content-Type} (si el BODY es texto reemplazable o binario) y \hdr{Connection}.
 	\item \textbf{Body}: todo lo que sigue al \verb|\r\n\r\n|, sin decodificar, porque puede ser binario (por ejemplo, una imagen).
-	\item \textbf{Bytes originales} (\texttt{raw}): permiten reenviar el mensaje tal como llegó y depurar.
+	\item \textbf{Bytes originales} (\code{raw}): permiten reenviar el mensaje tal como llegó y depurar.
 \end{itemize}
 
-El criterio fue extraer lo mínimo que el proxy necesita para decidir y para reconstruir el mensaje: \texttt{Host} y \texttt{path} para saber a qué servidor conectarse y si está bloqueado, \texttt{Content-Length} para saber cuándo terminó el mensaje cuando el buffer es más pequeño que este, y la start line para rearmar el mensaje o reemplazarla por un \texttt{403}.
+El criterio fue extraer lo mínimo que el proxy necesita para decidir y para reconstruir el mensaje: \hdr{Host} y \code{path} para saber a qué servidor conectarse y si está bloqueado, \hdr{Content-Length} para saber cuándo terminó el mensaje cuando el buffer es más pequeño que este, y la start line para rearmar el mensaje o reemplazarla por un \status{403}.
 
-No se extrae ni se normaliza el resto: los nombres de headers se guardan tal como llegan, un header repetido sobrescribe al anterior y se asume \texttt{Content-Length} (no se soporta \texttt{Transfer-Encoding: chunked}).
+No se extrae ni se normaliza el resto: los nombres de headers se guardan tal como llegan, un header repetido sobrescribe al anterior y se asume \hdr{Content-Length} (no se soporta \hdr{Transfer-Encoding: chunked}).
 
 \subsection{Creación de mensajes}
-\texttt{create\_HTTP\_message} (\texttt{HttpMessage.to\_bytes}) hace el camino inverso: rearma la start line según si el mensaje es request o response, escribe los headers como \texttt{Nombre: valor} separados por \verb|\r\n|, cierra el HEAD con \verb|\r\n\r\n| y concatena el BODY en bytes.
-Si el mensaje declaraba \texttt{Content-Length}, este se recalcula al serializar, de modo que un BODY editado por el proxy (reemplazo de palabras) mantenga un largo consistente.
+\code{create\_HTTP\_message} (\code{HttpMessage.to\_bytes}) hace el camino inverso: rearma la start line según si el mensaje es request o response, escribe los headers como \code{Nombre: valor} separados por \verb|\r\n|, cierra el HEAD con \verb|\r\n\r\n| y concatena el BODY en bytes.
+Si el mensaje declaraba \hdr{Content-Length}, este se recalcula al serializar, de modo que un BODY editado por el proxy (reemplazo de palabras) mantenga un largo consistente.
 
 \section{server.py}
-El servidor de la parte 1 recibe la ruta de su archivo de configuración JSON como argumento (\texttt{sys.argv}) y de ahí obtiene el nombre del usuario.
-Escucha en \texttt{(0.0.0.0, 8000)}, lee la request con \texttt{HttpMessage.receive} y responde con un \texttt{200 OK} que lleva un HTML mínimo, agregando el header \texttt{X-ElQuePregunta} con el nombre leído del JSON.
+El servidor de la parte 1 recibe la ruta de su archivo de configuración JSON como argumento (\code{sys.argv}) y de ahí obtiene el nombre del usuario.
+Escucha en \code{(0.0.0.0, 8000)}, lee la request con \code{HttpMessage.receive} y responde con un \status{200 OK} que lleva un HTML mínimo, agregando el header \hdr{X-ElQuePregunta} con el nombre leído del JSON.
 En la parte 2 este mismo archivo se transforma en el proxy.
 
 \section{Proxy}
@@ -126,23 +135,23 @@ La Figura \ref{img:proxy} muestra el flujo completo de una transacción, incluye
 En total el proxy necesita \textbf{tres sockets}, de los cuales solo dos transportan datos:
 
 \begin{itemize}
-	\item \textbf{S1, socket de escucha}: se crea una sola vez al iniciar el programa, se enlaza a \texttt{(IP\_VM, 8000)} con \texttt{bind} y queda en \texttt{listen}. No transporta datos; su única función es aceptar conexiones entrantes, y queda disponible para el siguiente cliente apenas se acepta el actual.
-	\item \textbf{S2, socket con el cliente}: es el que devuelve \texttt{accept} cuando un cliente se conecta. Por él llega la request y por él se envía la respuesta final. Sobre este socket el proxy actúa como servidor.
-	\item \textbf{S3, socket con el servidor de origen}: lo crea el proxy con \texttt{connect} hacia \texttt{(host, 80)} una vez que sabe cuál es el destino. Sobre este socket el proxy actúa como cliente.
+	\item \textbf{S1, socket de escucha}: se crea una sola vez al iniciar el programa, se enlaza a \code{(IP\_VM, 8000)} con \code{bind} y queda en \code{listen}. No transporta datos; su única función es aceptar conexiones entrantes, y queda disponible para el siguiente cliente apenas se acepta el actual.
+	\item \textbf{S2, socket con el cliente}: es el que devuelve \code{accept} cuando un cliente se conecta. Por él llega la request y por él se envía la respuesta final. Sobre este socket el proxy actúa como servidor.
+	\item \textbf{S3, socket con el servidor de origen}: lo crea el proxy con \code{connect} hacia \code{(host, 80)} una vez que sabe cuál es el destino. Sobre este socket el proxy actúa como cliente.
 \end{itemize}
 
 S1 vive durante toda la ejecución, mientras que S2 y S3 se crean y se cierran una vez por transacción.
-S3 además es condicional: si el dominio pedido está en la lista \texttt{blocked} del archivo de configuración, el proxy responde el \texttt{403} por S2 con contenido generado localmente y S3 nunca llega a crearse, de modo que el servidor prohibido nunca recibe la petición.
+S3 además es condicional: si el dominio pedido está en la lista \cfgkey{blocked} del archivo de configuración, el proxy responde el \status{403} por S2 con contenido generado localmente y S3 nunca llega a crearse, de modo que el servidor prohibido nunca recibe la petición.
 
 \subsection{Obtención de la dirección del servidor destino}
 El proxy no tiene la dirección del servidor configurada de antemano: la deduce del propio mensaje HTTP que recibe.
-Cuando un cliente está configurado para usar un proxy, abre la conexión TCP contra el proxy, pero escribe el destino real dentro de la request en forma absoluta: en vez de \texttt{GET /index.html HTTP/1.1} envía \texttt{GET http://example.com/ HTTP/1.1}, y además incluye el header obligatorio \texttt{Host: example.com}.
-Cualquiera de las dos fuentes sirve; en nuestra implementación usamos el header \texttt{Host}.
-De esa autoridad se obtiene el par \texttt{(host, puerto)}, separando el puerto si viene explícito como \texttt{host:puerto} y asumiendo el puerto canónico 80 en caso contrario.
-Con ese par se hace \texttt{connect} del socket S3, sin necesidad de resolver el dominio manualmente, ya que \texttt{socket.connect} acepta el nombre de dominio y realiza la resolución DNS internamente.
+Cuando un cliente está configurado para usar un proxy, abre la conexión TCP contra el proxy, pero escribe el destino real dentro de la request en forma absoluta: la start line lleva la URL completa del destino en vez de solo el path, y además se incluye el header obligatorio \hdr{Host} (ver el bloque siguiente).
+Cualquiera de las dos fuentes sirve; en nuestra implementación usamos el header \hdr{Host}.
+De esa autoridad se obtiene el par \code{(host, puerto)}, separando el puerto si viene explícito como \code{host:puerto} y asumiendo el puerto canónico 80 en caso contrario.
+Con ese par se hace \code{connect} del socket S3, sin necesidad de resolver el dominio manualmente, ya que \code{socket.connect} acepta el nombre de dominio y realiza la resolución DNS internamente.
 Nótese que el cliente sí conoce el destino ---es quien lo eligió---, pero no establece ninguna conexión con él ni resuelve su IP: ambas cosas las hace el proxy en su nombre, y es justamente esto lo que le permite filtrar o bloquear el acceso.
 
-La diferencia entre ambas formas se puede observar capturando con un socket lo que envía \texttt{curl}:
+La diferencia entre ambas formas se puede observar capturando con un socket lo que envía \code{curl}:
 
 \begin{verbatim}
 % curl example.com -x IP_VM:8000        (forma absoluta, hacia el proxy)
@@ -155,38 +164,38 @@ Host: IP_VM:8000
 \end{verbatim}
 
 \subsection{Bloqueo de dominios prohibidos}
-La detección de dominios bloqueados se realiza leyendo desde el archivo JSON la clave \verb|"blocked"|, que contiene los dominios que no están permitidos. Cuando llega una petición HTTP se obtiene el dominio desde el header Host, de la forma antes descrita, y se construye la URL completa. Luego, el proxy recorre la lista de dominios bloqueados y verifica si alguno está contenido en la URL solicitada: de encontrarse una coincidencia, la petición es bloqueada y el proxy responde directamente al cliente con un código HTTP 403 Forbidden. La respuesta contiene un HTML que incluye una etiqueta <img src="/gato.jpg">, indicando al navegador que debe solicitar la imagen. Esta segunda solicitud, cuyo path es /gato.jpg, debe ser reconocida por el proxy antes de intentar reenviarla al servidor de destino, ya que la imagen se encuentra almacenada localmente en el proxy y no en el servidor solicitado originalmente. Por lo tanto el proxy detecta esta ruta, busca el archivo gato.jpg localmente y responde directamente al navegador con la imagen, evitando que la solicitud sea enviada al servidor de destino.
+La detección de dominios bloqueados se realiza leyendo desde el archivo JSON la clave \cfgkey{blocked}, que contiene los dominios que no están permitidos. Cuando llega una petición HTTP se obtiene el dominio desde el header \hdr{Host}, de la forma antes descrita, y se construye la URL completa. Luego, el proxy recorre la lista de dominios bloqueados y verifica si alguno está contenido en la URL solicitada: de encontrarse una coincidencia, la petición es bloqueada y el proxy responde directamente al cliente con un \status{403 Forbidden}. La respuesta contiene un HTML que incluye una etiqueta \verb|<img src="/gato.jpg">|, indicando al navegador que debe solicitar la imagen. Esta segunda solicitud, cuyo path es \code{/gato.jpg}, debe ser reconocida por el proxy antes de intentar reenviarla al servidor de destino, ya que la imagen se encuentra almacenada localmente en el proxy y no en el servidor solicitado originalmente. Por lo tanto el proxy detecta esta ruta, busca el archivo \code{gato.jpg} localmente y responde directamente al navegador con la imagen, evitando que la solicitud sea enviada al servidor de destino.
 
-Luego, para poder mostrar la imagen se necesitan 2 ciclos de comunicación HTTP: primero, un ciclo para solicitar y recibir la página HTML bloqueada (con el 403), y luego un segundo ciclo en el que el navegador solicita /gato.jpg y el proxy le responde con la imagen almacenada localmente.
+Luego, para poder mostrar la imagen se necesitan 2 ciclos de comunicación HTTP: primero, un ciclo para solicitar y recibir la página HTML bloqueada (con el \status{403}), y luego un segundo ciclo en el que el navegador solicita \code{/gato.jpg} y el proxy le responde con la imagen almacenada localmente.
 
 \subsection{Header X-ElQuePregunta}
-Cuando el destino no está bloqueado, el proxy agrega a la petición el header \texttt{X-ElQuePregunta}, cuyo valor corresponde al nombre del usuario obtenido desde el archivo JSON. Esto se realiza antes de reenviar la petición al servidor destino, mediante \texttt{request\_msg.headers["X-ElQuePregunta"] = user\_name}. Luego el proxy envía la petición modificada al servidor a través del socket correspondiente.
+Cuando el destino no está bloqueado, el proxy agrega a la petición el header \hdr{X-ElQuePregunta}, cuyo valor corresponde al nombre del usuario obtenido desde el archivo JSON. Esto se realiza antes de reenviar la petición al servidor destino, mediante \code{request\_msg.headers["X-ElQuePregunta"] = user\_name}. Luego el proxy envía la petición modificada al servidor a través del socket correspondiente.
 
 \subsection{Reemplazo de palabras prohibidas}
-Una vez recibida la respuesta del servidor destino, el proxy revisa su BODY para reemplazar las palabras indicadas en la clave \texttt{forbidden\_words} del archivo JSON. Para esto primero convierte el BODY desde bytes a texto utilizando UTF-8, luego, recorre las palabras prohibidas y reemplaza cada una por el texto correspondiente. Finalmente convierte nuevamente el BODY modificado a bytes antes de enviarlo al cliente.
+Una vez recibida la respuesta del servidor destino, el proxy revisa su BODY para reemplazar las palabras indicadas en la clave \cfgkey{forbidden\_words} del archivo JSON. Para esto primero convierte el BODY desde bytes a texto utilizando UTF-8, luego, recorre las palabras prohibidas y reemplaza cada una por el texto correspondiente. Finalmente convierte nuevamente el BODY modificado a bytes antes de enviarlo al cliente.
 
-Es necesario recalcular el \texttt{Content-Length} después del reemplazo, ya que este header indica la cantidad de bytes que contiene el BODY. Como el reemplazo puede cambiar el tamaño del contenido, el valor original de \texttt{Content-Length} podría dejar de coincidir con la cantidad real de bytes del BODY. Por lo tanto se debe actualizar con el nuevo tamaño antes de enviar la respuesta al cliente.
+Es necesario recalcular el \hdr{Content-Length} después del reemplazo, ya que este header indica la cantidad de bytes que contiene el BODY. Como el reemplazo puede cambiar el tamaño del contenido, el valor original de \hdr{Content-Length} podría dejar de coincidir con la cantidad real de bytes del BODY. Por lo tanto se debe actualizar con el nuevo tamaño antes de enviar la respuesta al cliente.
 
 \subsection{Recepción con buffer pequeño}
-La función \texttt{HttpMessage.\_read\_raw} realiza la recepción del mensaje en dos fases: primero se leen los bytes necesarios para obtener los headers, identificando el final de esta sección mediante la secuencia \texttt{\textbackslash r\textbackslash n\textbackslash r\textbackslash n}. Una vez obtenidos los headers, se determina la cantidad de bytes del BODY a partir del header \texttt{Content-Length}, y se continúa leyendo hasta recibir la cantidad indicada.
+La función \code{HttpMessage.\_read\_raw} realiza la recepción del mensaje en dos fases: primero se leen los bytes necesarios para obtener los headers, identificando el final de esta sección mediante la secuencia \verb|\r\n\r\n|. Una vez obtenidos los headers, se determina la cantidad de bytes del BODY a partir del header \hdr{Content-Length}, y se continúa leyendo hasta recibir la cantidad indicada.
 
-Para saber si el mensaje completo llegó se debe haber recibido el final de los headers y, si existe un BODY, la cantidad de bytes indicada por \texttt{Content-Length}. Si los headers no caben en un solo buffer se realizan múltiples lecturas y se van acumulando los bytes recibidos hasta encontrar \texttt{\textbackslash r\textbackslash n\textbackslash r\textbackslash n}. De esta forma, el tamaño del buffer no determina el tamaño máximo de los headers.
+Para saber si el mensaje completo llegó se debe haber recibido el final de los headers y, si existe un BODY, la cantidad de bytes indicada por \hdr{Content-Length}. Si los headers no caben en un solo buffer se realizan múltiples lecturas y se van acumulando los bytes recibidos hasta encontrar \verb|\r\n\r\n|. De esta forma, el tamaño del buffer no determina el tamaño máximo de los headers.
 
-La sección de headers se considera completa al encontrar \texttt{\textbackslash r\textbackslash n\textbackslash r\textbackslash n}. En cuanto al BODY, se considera completo cuando se han recibido exactamente los bytes indicados por \texttt{Content-Length}. Por lo tanto, tanto los headers como el BODY pueden requerir varias llamadas a \texttt{recv()} cuando se utiliza un buffer pequeño.
+La sección de headers se considera completa al encontrar \verb|\r\n\r\n|. En cuanto al BODY, se considera completo cuando se han recibido exactamente los bytes indicados por \hdr{Content-Length}. Por lo tanto, tanto los headers como el BODY pueden requerir varias llamadas a \code{recv()} cuando se utiliza un buffer pequeño.
 
 \section{Pruebas}
 Las pruebas se realizaron con el navegador configurado para utilizar el proxy HTTP. Se obtuvieron las siguientes observaciones:
 
 \begin{enumerate}
-    \item \textbf{\texttt{http://cc4303.bachmann.cl/secret}:} la página ya no se muestra, 
+    \item \textbf{\url{http://cc4303.bachmann.cl/secret}:} la página ya no se muestra, 
     ya que el proxy detecta la ruta bloqueada según la configuración del archivo JSON 
-    y responde directamente con un \texttt{403 Forbidden}, sin contactar al servidor 
+    y responde directamente con un \status{403 Forbidden}, sin contactar al servidor 
     destino. La respuesta contiene un HTML generado por el proxy que incluye una 
-    referencia a \texttt{/gato.jpg}. El navegador realiza una segunda solicitud para 
+    referencia a \code{/gato.jpg}. El navegador realiza una segunda solicitud para 
     obtener dicha imagen, a la cual el proxy responde directamente con la imagen 
     almacenada localmente.
     
-    En la Figura~\ref{fig:forbidden} se observa la respuesta \texttt{403 Forbidden} 
+    En la Figura~\ref{fig:forbidden} se observa la respuesta \status{403 Forbidden} 
     junto con la imagen local.
 
     \begin{figure}[H]
@@ -196,12 +205,12 @@ Las pruebas se realizaron con el navegador configurado para utilizar el proxy HT
         \label{fig:forbidden}
     \end{figure}
 
-    \item \textbf{\texttt{http://cc4303.bachmann.cl/}:} el contenido recibido permite 
+    \item \textbf{\url{http://cc4303.bachmann.cl/}:} el contenido recibido permite 
     comprobar que el proxy modificó la petición antes de reenviarla al servidor 
     destino. En particular, se agrega el header 
-    \texttt{X-ElQuePregunta}, cuyo valor corresponde al nombre obtenido desde el 
+    \hdr{X-ElQuePregunta}, cuyo valor corresponde al nombre obtenido desde el 
     archivo de configuración JSON. El servidor utiliza este header para generar 
-    contenido diferente en la respuesta, mostrando el user\_name definido en el config.json.
+    contenido diferente en la respuesta, mostrando el \cfgkey{user\_name} definido en \code{config.json}.
 
     La Figura~\ref{fig:header} muestra el resultado obtenido al acceder al sitio, 
     verificando que el header fue agregado correctamente.
@@ -209,14 +218,14 @@ Las pruebas se realizaron con el navegador configurado para utilizar el proxy HT
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.8\textwidth]{img/header.png}
-        \caption{Contenido modificado según el header \texttt{X-ElQuePregunta}.}
+        \caption{Contenido modificado según el header \hdr{X-ElQuePregunta}.}
         \label{fig:header}
     \end{figure}
 
-    \item \textbf{\texttt{http://cc4303.bachmann.cl/} y \texttt{/replace}:} ambas 
+    \item \textbf{Páginas \url{http://cc4303.bachmann.cl/} y \url{http://cc4303.bachmann.cl/replace}:} ambas 
     páginas pueden visualizarse correctamente a través del proxy. Como se observa 
     en la Figura~\ref{fig:header}, la página principal se muestra correctamente, reemplazando la palabra proxy con [REDACTED], mientras que en la Figura~\ref{fig:replace} se observa la versión correspondiente 
-    a \texttt{/replace}. En ambas páginas, el contenido se mantiene salvo por las palabras incluidas en \texttt{forbidden\_words}, que 
+    a \code{/replace}. En ambas páginas, el contenido se mantiene salvo por las palabras incluidas en \cfgkey{forbidden\_words}, que 
     son reemplazadas por los valores definidos en el archivo JSON. Esto demuestra 
     que el proxy modifica el BODY de la respuesta antes de enviarlo al navegador.
 
@@ -227,20 +236,9 @@ Las pruebas se realizaron con el navegador configurado para utilizar el proxy HT
         \label{fig:replace}
     \end{figure}
 
-    \item \textbf{Buffer de recepción menor que el mensaje pero mayor que el área de headers:} los headers se reciben completamente en una primera lectura, mientras que el BODY requiere lecturas adicionales hasta completar la cantidad de bytes indicada por \texttt{Content-Length}.
+    \item \textbf{Buffer de recepción menor que el mensaje pero mayor que el área de headers:} los headers se reciben completamente en una primera lectura, mientras que el BODY requiere lecturas adicionales hasta completar la cantidad de bytes indicada por \hdr{Content-Length}.
 
-    \item \textbf{Buffer de recepción menor que el área de headers pero mayor que la start line:} los headers deben recibirse mediante varias llamadas a \texttt{recv()}, acumulando los bytes hasta encontrar la secuencia que indica el final de los headers. Una vez obtenidos, se procede a leer el BODY utilizando \texttt{Content-Length}.
-\end{enumerate}
-
-
-\section{Pruebas}
-\textbf{[TODO: anotar las observaciones de las pruebas con el navegador configurado con el proxy:]}
-\begin{enumerate}
-	\item \textbf{[TODO: \texttt{http://cc4303.bachmann.cl/secret} ya no se ve; se recibe un \texttt{403} y se muestra la imagen local.]}
-	\item \textbf{[TODO: el contenido de \texttt{http://cc4303.bachmann.cl/} cambia según los headers modificados.]}
-	\item \textbf{[TODO: \texttt{http://cc4303.bachmann.cl/} y \texttt{/replace} se ven igual salvo por las palabras prohibidas censuradas.]}
-	\item \textbf{[TODO: buffer de recepción menor que el mensaje pero mayor que el área de headers.]}
-	\item \textbf{[TODO: buffer de recepción menor que el área de headers pero mayor que la start line.]}
+    \item \textbf{Buffer de recepción menor que el área de headers pero mayor que la start line:} los headers deben recibirse mediante varias llamadas a \code{recv()}, acumulando los bytes hasta encontrar la secuencia que indica el final de los headers. Una vez obtenidos, se procede a leer el BODY utilizando \hdr{Content-Length}.
 \end{enumerate}
 
 \section{Ejecución y repositorio}
@@ -256,8 +254,7 @@ Repositorio: \url{https://github.com/MFSaavedra/C1_Redes}
 \textbf{[TODO: verificar que el equipo docente tenga acceso al repositorio y completar el detalle de ejecución (IP y puerto usados, cómo configurar el proxy en el navegador).]}
 
 \section{Declaración de uso de IA}
-\textbf{[TODO: declarar explícitamente el uso o no uso de IA/LLMs, indicando el modelo utilizado y los lugares donde se usó (código, redacción, etc.). Sin esta declaración no se considera el puntaje del informe.]}
-En la elaboración de este informe se utilizaron modelos de inteligencia artificial, específicamente \textbf{Gemini} y \textbf{Claude}, como apoyo conceptual. 
+En la elaboración de este informe se utilizaron modelos de inteligencia artificial, específicamente \textbf{Gemini} y \textbf{Claude} (Opus 5), como apoyo conceptual. 
 El uso se limitó a:
 \begin{itemize}
   \item Aclarar conceptos relacionados con el formato de HTTP y HTML.

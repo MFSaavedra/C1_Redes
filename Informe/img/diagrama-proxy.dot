@@ -1,0 +1,155 @@
+/*
+ * Diagrama de secuencia del proxy HTTP (CC4303 - Actividad C1, Parte 2)
+ *
+ * Render:
+ *   dot -Tpdf diagrama_proxy.dot -o diagrama_proxy.pdf
+ *   dot -Tpng -Gdpi=200 diagrama_proxy.dot -o diagrama_proxy.png
+ */
+digraph proxy {
+    rankdir  = TB;
+    splines  = false;
+    nodesep  = 0.45;
+    ranksep  = 0.22;
+    bgcolor  = "white";
+    fontname = "Helvetica";
+
+    // nodos de la linea de vida: puntos invisibles
+    node [shape=point, width=0.015, height=0.015, label="", color="#555555",
+          fontname="Helvetica", fontsize=10];
+    edge [fontname="Helvetica", fontsize=10, arrowsize=0.7, color="#333333"];
+
+    // ---------- encabezados de los actores ----------
+    { rank = same;
+        c0 [shape=box, style="filled,rounded", fillcolor="#dfe8f5", color="#4a6fa5",
+            penwidth=1.2, fontsize=11, label="CLIENTE\n(curl / navegador)"];
+        p0 [shape=box, style="filled,rounded", fillcolor="#f7e6cc", color="#b5842f",
+            penwidth=1.2, fontsize=11, label="PROXY\n(IP_VM:8000)"];
+        s0 [shape=box, style="filled,rounded", fillcolor="#dcefdc", color="#4f8a4f",
+            penwidth=1.2, fontsize=11, label="SERVIDOR\ncc4303.bachmann.cl:80"];
+        c0 -> p0 [style=invis];
+        p0 -> s0 [style=invis];
+    }
+
+    // ---------- filas (cada fila = un instante de tiempo) ----------
+    // fila 1: el proxy se prepara como servidor
+    { rank = same;
+        c1;
+        p1 [shape=box, style="filled,rounded", fillcolor="#fff8ec", color="#b5842f",
+            fontsize=10, label="1. socket() + bind() + listen()\n=> S1: socket de escucha"];
+        s1;
+    }
+
+    // fila 2: connect del cliente
+    { rank = same; c2; p2; s2; }
+
+    // fila 3: accept del proxy
+    { rank = same;
+        c3;
+        p3 [shape=box, style="filled,rounded", fillcolor="#fff8ec", color="#b5842f",
+            fontsize=10, label="3. accept() => S2: socket con el cliente\n(S1 sigue escuchando)"];
+        s3;
+    }
+
+    // fila 3b: separador
+    { rank = same; c3b; p3b; s3b; }
+
+    // fila 4: request del cliente
+    { rank = same; c4; p4; s4; }
+
+    // fila 5: recepcion completa + parse + filtro de dominio
+    { rank = same;
+        c5;
+        p5 [shape=box, style="filled,rounded", fillcolor="#fff8ec", color="#b5842f",
+            fontsize=10, label="5. recv() hasta el mensaje completo\n(\\r\\n\\r\\n y luego Content-Length)\n6. parse => (host, puerto = 80)\n7. ¿host en \"blocked\"?"];
+        s5;
+    }
+
+    // fila 5b: separador (deja espacio a la etiqueta 7a)
+    { rank = same; c5b; p5b; s5b; }
+
+    // fila 6: rama bloqueada (403)
+    { rank = same; c6; p6; s6; }
+
+    // fila 7: inyeccion de header
+    { rank = same;
+        c7;
+        p7 [shape=box, style="filled,rounded", fillcolor="#fff8ec", color="#b5842f",
+            fontsize=10, label="8. NO bloqueado: agrega el header\nX-ElQuePregunta a la request"];
+        s7;
+    }
+
+    // fila 7b: separador (deja espacio a la etiqueta 9)
+    { rank = same; c7b; p7b; s7b; }
+
+    // fila 8: connect al servidor
+    { rank = same; c8; p8; s8; }
+
+    // fila 9: accept del servidor
+    { rank = same;
+        c9; p9;
+        s9 [shape=box, style="filled,rounded", fillcolor="#f2fbf2", color="#4f8a4f",
+            fontsize=10, label="10. accept()"];
+    }
+
+    // fila 10: request reenviada
+    { rank = same; c10; p10; s10; }
+
+    // fila 11: response del servidor
+    { rank = same; c11; p11; s11; }
+
+    // fila 12: filtrado del body
+    { rank = same;
+        c12;
+        p12 [shape=box, style="filled,rounded", fillcolor="#fff8ec", color="#b5842f",
+             fontsize=10, label="13. recv() completo desde S3\n14. reemplaza forbidden_words\ny recalcula Content-Length"];
+        s12;
+    }
+
+    // fila 13: response al cliente
+    { rank = same; c13; p13; s13; }
+
+    // fila 14: cierre
+    { rank = same;
+        c14;
+        p14 [shape=box, style="filled,rounded", fillcolor="#fff8ec", color="#b5842f",
+             fontsize=10, label="16. close(S3) y close(S2)\nS1 vuelve a accept()"];
+        s14;
+    }
+
+    // ---------- lineas de vida ----------
+    edge [arrowhead=none, weight=100, penwidth=1.1];
+    c0 -> c1 -> c2 -> c3 -> c3b [color="#4a6fa5"];
+    c3b -> c4 [color="#4a6fa5", minlen=2];
+    c4 -> c5 -> c5b [color="#4a6fa5"];
+    c5b -> c6 [color="#4a6fa5", minlen=2];
+    c6 -> c7 -> c7b -> c8 -> c9 -> c10 -> c11 -> c12 -> c13 -> c14 [color="#4a6fa5"];
+
+    p0 -> p1 -> p2 -> p3 -> p3b [color="#b5842f"];
+    p3b -> p4 [color="#b5842f", minlen=2];
+    p4 -> p5 -> p5b [color="#b5842f"];
+    p5b -> p6 [color="#b5842f", minlen=2];
+    p6 -> p7 -> p7b -> p8 -> p9 -> p10 -> p11 -> p12 -> p13 -> p14 [color="#b5842f"];
+
+    s0 -> s1 -> s2 -> s3 -> s3b [color="#4f8a4f"];
+    s3b -> s4 [color="#4f8a4f", minlen=2];
+    s4 -> s5 -> s5b [color="#4f8a4f"];
+    s5b -> s6 [color="#4f8a4f", minlen=2];
+    s6 -> s7 -> s7b -> s8 -> s9 -> s10 -> s11 -> s12 -> s13 -> s14 [color="#4f8a4f"];
+
+    // ---------- mensajes ----------
+    // (las flechas hacia la izquierda se dibujan con dir=back para no alterar
+    //  el orden de las columnas)
+    edge [arrowhead=normal, weight=1, constraint=false, penwidth=1.1, fontsize=10];
+
+    c2 -> p2 [label="2. connect((IP_VM,8000))", color="#4a6fa5", fontcolor="#2c4a73"];
+    c4 -> p4 [label="4. send(request)\nGET http://host/path HTTP/1.1", color="#4a6fa5", fontcolor="#2c4a73"];
+
+    // rama alternativa: dominio bloqueado
+    c6 -> p6 [dir=back, style=dashed, color="#c0392b", fontcolor="#c0392b",
+              label="7a. [SÍ bloqueado]\nsend(403 + HTML con <img>)\ny close(S2): no se crea S3"];
+
+    p8  -> s8  [label="9. connect((host, 80))\n=> S3", color="#4f8a4f", fontcolor="#2f5f2f"];
+    p10 -> s10 [label="11. send(request modificada)", color="#4f8a4f", fontcolor="#2f5f2f"];
+    p11 -> s11 [dir=back, label="12. send(response)", color="#4f8a4f", fontcolor="#2f5f2f"];
+    c13 -> p13 [dir=back, label="15. send(response filtrada)", color="#4a6fa5", fontcolor="#2c4a73"];
+}

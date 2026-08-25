@@ -1,4 +1,3 @@
-import os
 import socket
 import json
 import sys
@@ -41,15 +40,14 @@ if __name__ == "__main__":
             path = request_msg.start_line.get("path", "/")
 
             if path.endswith("/gato.jpg"):
-                if os.path.exists("gato.jpg"):
-                    with open("gato.jpg", "rb") as f:
-                        image_data = f.read()
-                    response_msg = HttpMessage(
-                        start_line={"version": "HTTP/1.1", "status_code": 200, "reason": "OK"},
-                        headers={"Content-Type": "image/jpeg", "Content-Length": str(len(image_data))},
-                        body=image_data
-                    )
-                    client_socket.sendall(response_msg.to_bytes())
+                with open("gato.jpg", "rb") as f:
+                    image_data = f.read()
+                response_msg = HttpMessage(
+                    start_line={"version": "HTTP/1.1", "status_code": 200, "reason": "OK"},
+                    headers={"Content-Type": "image/jpeg", "Content-Length": str(len(image_data))},
+                    body=image_data
+                )
+                client_socket.sendall(response_msg.to_bytes())
                 client_socket.close()
                 continue
 

@@ -106,12 +106,12 @@ Siguiendo esa estructura, \code{parse} extrae:
 
 \begin{itemize}
 	\item \textbf{Start line}: es la única línea cuyo formato depende de la dirección del mensaje. Si parte con \code{HTTP/} es una respuesta y se extraen \code{version}, \code{status\_code} y \code{reason}; en caso contrario es una request y se extraen \code{method}, \code{path} y \code{version}.
-	\item \textbf{Headers}: cada línea restante del HEAD tiene el formato \code{Nombre: valor} y se guarda en un diccionario. Se decidió utilizar un diccionario para facilitar el acceso a los headers por nombre, por ejemplo, para obtener directamente los headers \hdr{Host} y \hdr{Content-Length}, sin recorrer nuevamente todas las líneas del HEAD. Para esta actividad importan \hdr{Host} (dominio y puerto del servidor destino, 80 por defecto), \hdr{Content-Length} (cuántos bytes de BODY hay que leer), \hdr{Content-Type} (si el BODY es texto reemplazable o binario) y \hdr{Connection}.
+	\item \textbf{Headers}: cada línea restante del HEAD tiene el formato \code{Nombre: valor} y se guarda en un diccionario. Se decidió utilizar un diccionario para facilitar el acceso a los headers por nombre. Para esta actividad importan \hdr{Host} (dominio y puerto del servidor destino, 80 por defecto), \hdr{Content-Length} (cuántos bytes de BODY hay que leer), \hdr{Content-Type} (si el BODY es texto reemplazable o binario) y \hdr{Connection}.
 	\item \textbf{Body}: todo lo que sigue al \verb|\r\n\r\n|, sin decodificar, porque puede ser binario (por ejemplo, una imagen).
 	\item \textbf{Bytes originales} (\code{raw}): permiten reenviar el mensaje tal como llegó y depurar.
 \end{itemize}
 
-El criterio fue extraer lo mínimo que el proxy necesita para decidir y para reconstruir el mensaje: \hdr{Host} y \code{path} para saber a qué servidor conectarse y si está bloqueado, \hdr{Content-Length} para saber cuándo terminó el mensaje cuando el buffer es más pequeño que este, y la start line para rearmar el mensaje o reemplazarla por un \status{403}.
+La estrategia fue extraer lo que el proxy necesita para decidir y para reconstruir el mensaje: \hdr{Host} y \code{path} para saber a qué servidor conectarse y si está bloqueado, \hdr{Content-Length} para saber cuándo terminó el mensaje cuando el buffer es más pequeño que este, y la start line para rearmar el mensaje o reemplazarla por un \status{403}.
 
 No se extrae ni se normaliza el resto: los nombres de headers se guardan tal como llegan, un header repetido sobrescribe al anterior y se asume \hdr{Content-Length} (no se soporta \hdr{Transfer-Encoding: chunked}).
 
@@ -187,58 +187,58 @@ La sección de headers se considera completa al encontrar \verb|\r\n\r\n|. En cu
 Las pruebas se realizaron con el navegador configurado para utilizar el proxy HTTP. Se obtuvieron las siguientes observaciones:
 
 \begin{enumerate}
-    \item \textbf{\url{http://cc4303.bachmann.cl/secret}:} la página ya no se muestra, 
-    ya que el proxy detecta la ruta bloqueada según la configuración del archivo JSON 
-    y responde directamente con un \status{403 Forbidden}, sin contactar al servidor 
-    destino. La respuesta contiene un HTML generado por el proxy que incluye una 
-    referencia a \code{/gato.jpg}. El navegador realiza una segunda solicitud para 
-    obtener dicha imagen, a la cual el proxy responde directamente con la imagen 
-    almacenada localmente.
-    
-    En la Figura~\ref{fig:forbidden} se observa la respuesta \status{403 Forbidden} 
-    junto con la imagen local.
+	\item \textbf{\url{http://cc4303.bachmann.cl/secret}:} la página ya no se muestra,
+	      ya que el proxy detecta la ruta bloqueada según la configuración del archivo JSON
+	      y responde directamente con un \status{403 Forbidden}, sin contactar al servidor
+	      destino. La respuesta contiene un HTML generado por el proxy que incluye una
+	      referencia a \code{/gato.jpg}. El navegador realiza una segunda solicitud para
+	      obtener dicha imagen, a la cual el proxy responde directamente con la imagen
+	      almacenada localmente.
 
-    \begin{figure}[H]
-        \centering
-        \includegraphics[width=0.8\textwidth]{img/forbidden.png}
-        \caption{Respuesta 403 Forbidden y despliegue de la imagen local.}
-        \label{fig:forbidden}
-    \end{figure}
+	      En la Figura~\ref{fig:forbidden} se observa la respuesta \status{403 Forbidden}
+	      junto con la imagen local.
 
-    \item \textbf{\url{http://cc4303.bachmann.cl/}:} el contenido recibido permite 
-    comprobar que el proxy modificó la petición antes de reenviarla al servidor 
-    destino. En particular, se agrega el header 
-    \hdr{X-ElQuePregunta}, cuyo valor corresponde al nombre obtenido desde el 
-    archivo de configuración JSON. El servidor utiliza este header para generar 
-    contenido diferente en la respuesta, mostrando el \cfgkey{user\_name} definido en \code{config.json}.
+	      \begin{figure}[H]
+		      \centering
+		      \includegraphics[width=0.8\textwidth]{img/forbidden.png}
+		      \caption{Respuesta 403 Forbidden y despliegue de la imagen local.}
+		      \label{fig:forbidden}
+	      \end{figure}
 
-    La Figura~\ref{fig:header} muestra el resultado obtenido al acceder al sitio, 
-    verificando que el header fue agregado correctamente.
+	\item \textbf{\url{http://cc4303.bachmann.cl/}:} el contenido recibido permite
+	      comprobar que el proxy modificó la petición antes de reenviarla al servidor
+	      destino. En particular, se agrega el header
+	      \hdr{X-ElQuePregunta}, cuyo valor corresponde al nombre obtenido desde el
+	      archivo de configuración JSON. El servidor utiliza este header para generar
+	      contenido diferente en la respuesta, mostrando el \cfgkey{user\_name} definido en \code{config.json}.
 
-    \begin{figure}[H]
-        \centering
-        \includegraphics[width=0.8\textwidth]{img/header.png}
-        \caption{Contenido modificado según el header \hdr{X-ElQuePregunta}.}
-        \label{fig:header}
-    \end{figure}
+	      La Figura~\ref{fig:header} muestra el resultado obtenido al acceder al sitio,
+	      verificando que el header fue agregado correctamente.
 
-    \item \textbf{Páginas \url{http://cc4303.bachmann.cl/} y \url{http://cc4303.bachmann.cl/replace}:} ambas 
-    páginas pueden visualizarse correctamente a través del proxy. Como se observa 
-    en la Figura~\ref{fig:header}, la página principal se muestra correctamente, reemplazando la palabra proxy con [REDACTED], mientras que en la Figura~\ref{fig:replace} se observa la versión correspondiente 
-    a \code{/replace}. En ambas páginas, el contenido se mantiene salvo por las palabras incluidas en \cfgkey{forbidden\_words}, que 
-    son reemplazadas por los valores definidos en el archivo JSON. Esto demuestra 
-    que el proxy modifica el BODY de la respuesta antes de enviarlo al navegador.
+	      \begin{figure}[H]
+		      \centering
+		      \includegraphics[width=0.8\textwidth]{img/header.png}
+		      \caption{Contenido modificado según el header \hdr{X-ElQuePregunta}.}
+		      \label{fig:header}
+	      \end{figure}
 
-    \begin{figure}[H]
-        \centering
-        \includegraphics[width=0.8\textwidth]{img/replace.png}
-        \caption{Palabras prohibidas reemplazadas en el BODY de la respuesta.}
-        \label{fig:replace}
-    \end{figure}
+	\item \textbf{Páginas \url{http://cc4303.bachmann.cl/} y \url{http://cc4303.bachmann.cl/replace}:} ambas
+	      páginas pueden visualizarse correctamente a través del proxy. Como se observa
+	      en la Figura~\ref{fig:header}, la página principal se muestra correctamente, reemplazando la palabra proxy con [REDACTED], mientras que en la Figura~\ref{fig:replace} se observa la versión correspondiente
+	      a \code{/replace}. En ambas páginas, el contenido se mantiene salvo por las palabras incluidas en \cfgkey{forbidden\_words}, que
+	      son reemplazadas por los valores definidos en el archivo JSON. Esto demuestra
+	      que el proxy modifica el BODY de la respuesta antes de enviarlo al navegador.
 
-    \item \textbf{Buffer de recepción menor que el mensaje pero mayor que el área de headers:} los headers se reciben completamente en una primera lectura, mientras que el BODY requiere lecturas adicionales hasta completar la cantidad de bytes indicada por \hdr{Content-Length}.
+	      \begin{figure}[H]
+		      \centering
+		      \includegraphics[width=0.8\textwidth]{img/replace.png}
+		      \caption{Palabras prohibidas reemplazadas en el BODY de la respuesta.}
+		      \label{fig:replace}
+	      \end{figure}
 
-    \item \textbf{Buffer de recepción menor que el área de headers pero mayor que la start line:} los headers deben recibirse mediante varias llamadas a \code{recv()}, acumulando los bytes hasta encontrar la secuencia que indica el final de los headers. Una vez obtenidos, se procede a leer el BODY utilizando \hdr{Content-Length}.
+	\item \textbf{Buffer de recepción menor que el mensaje pero mayor que el área de headers:} los headers se reciben completamente en una primera lectura, mientras que el BODY requiere lecturas adicionales hasta completar la cantidad de bytes indicada por \hdr{Content-Length}.
+
+	\item \textbf{Buffer de recepción menor que el área de headers pero mayor que la start line:} los headers deben recibirse mediante varias llamadas a \code{recv()}, acumulando los bytes hasta encontrar la secuencia que indica el final de los headers. Una vez obtenidos, se procede a leer el BODY utilizando \hdr{Content-Length}.
 \end{enumerate}
 
 \section{Ejecución y repositorio}
@@ -251,17 +251,17 @@ curl example.com -x IP_VM:8000
 
 Repositorio: \url{https://github.com/MFSaavedra/C1_Redes}
 
-\textbf{[TODO: verificar que el equipo docente tenga acceso al repositorio y completar el detalle de ejecución (IP y puerto usados, cómo configurar el proxy en el navegador).]}
-
 \section{Declaración de uso de IA}
-En la elaboración de este informe se utilizaron modelos de inteligencia artificial, específicamente \textbf{Gemini} y \textbf{Claude} (Opus 5), como apoyo conceptual. 
+En la elaboración de este informe se utilizaron modelos de inteligencia artificial para editar el template de latex, organizar secciones y traspasar a un grafo de \textit{graphviz} \ref{img:proxy}. Se utilizaron \textbf{Gemini} y \textbf{Claude} (Opus 5).
 El uso se limitó a:
 \begin{itemize}
-  \item Aclarar conceptos relacionados con el formato de HTTP y HTML.
-  \item Explicar el funcionamiento de máquinas virtuales, incluyendo la configuración de puertos, modos de red (NAT, adaptador de red) y asignación de direcciones IP.
+	\item Aclarar conceptos relacionados con el formato de HTTP y HTML.
+	\item Explicar el funcionamiento de máquinas virtuales, incluyendo la configuración de puertos, modos de red (NAT, adaptador de red) y asignación de direcciones IP.
+	\item Corregir/debuggear y complementar código.
+	\item
 \end{itemize}
 
-Los modelos se emplearon como herramientas de consulta y explicación para comprender mejor los temas técnicos. 
+Los modelos se emplearon como herramientas de consulta y explicación para comprender mejor los temas técnicos.
 
 % FIN DEL DOCUMENTO
 \end{document}

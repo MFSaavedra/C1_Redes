@@ -124,6 +124,8 @@ El servidor de la parte 1 recibe la ruta de su archivo de configuración JSON co
 Escucha en \code{(0.0.0.0, 8000)}, lee la request con \code{HttpMessage.receive} y responde con un \status{200 OK} que lleva un HTML mínimo, agregando el header \hdr{X-ElQuePregunta} con el nombre leído del JSON.
 En la parte 2 este mismo archivo se transforma en el proxy.
 
+Las pruebas de esta primera parte se hicieron sobre la misma máquina virtual: se capturó la request enviada por el navegador a \code{(IP\_VM, 8000)} y se verificó que \code{parse\_HTTP\_message} la interpretaba correctamente, y luego \code{curl -i IP\_VM:8000} devolvió un \status{200 OK} con el HTML y el header \hdr{X-ElQuePregunta} tomado del archivo JSON.
+
 \section{Proxy}
 
 \subsection{Diagrama de flujo y sockets}
@@ -184,7 +186,93 @@ Para saber si el mensaje completo llegó se debe haber recibido el final de los 
 La sección de headers se considera completa al encontrar \verb|\r\n\r\n|. En cuanto al BODY, se considera completo cuando se han recibido exactamente los bytes indicados por \hdr{Content-Length}. Por lo tanto, tanto los headers como el BODY pueden requerir varias llamadas a \code{recv()} cuando se utiliza un buffer pequeño.
 
 \section{Pruebas}
-Las pruebas se realizaron con el navegador configurado para utilizar el proxy HTTP. Se obtuvieron las siguientes observaciones:
+Todas las pruebas se ejecutaron con el proxy corriendo en la máquina virtual, con su socket de escucha enlazado a \code{(0.0.0.0, 8000)} y accedido desde la máquina anfitriona como \code{IP\_VM:8000}; en las pruebas reportadas \code{IP\_VM} fue \code{192.168.2.5}. Antes de configurar el proxy se verificó que los tres sitios de referencia (\url{http://cc4303.bachmann.cl/}, \url{http://cc4303.bachmann.cl/replace} y \url{http://cc4303.bachmann.cl/secret}) se visualizaban correctamente de forma directa.
+
+\subsection{Pruebas con curl}
+\begin{enumerate}
+	\item \textbf{Transferencia íntegra:} pedir \url{http://example.com} con y sin proxy entrega
+	      exactamente los mismos bytes ---559 en ambos casos, mismo \code{md5sum}---, lo que
+	      confirma que el proxy reenvía la request y la response sin alterarlas.
+
+	      \begin{verbatim}
+% curl -s example.com | md5sum
+c35dafa74975d89a1236a2591acb3616  -
+% curl -s example.com -x IP_VM:8000 | md5sum
+c35dafa74975d89a1236a2591acb3616  -
+	      \end{verbatim}
+
+	      Nótese que \url{http://example.com} responde con \hdr{Transfer-Encoding: chunked} y sin
+	      \hdr{Content-Length}; el proxy reenvía el BODY tal como llegó, de modo que el cliente
+	      recibe los mismos bytes. La Figura~\ref{fig:curlexample} muestra la comparación completa.
+
+	      \begin{figure}[H]
+		      \centering
+		      \includegraphics[width=0.8\textwidth]{img/curl-example.png}
+		      \caption{Salida de consola: \url{http://example.com} pedido con y sin proxy.}
+		      \label{fig:curlexample}
+	      \end{figure}
+
+	\item \textbf{Bloqueo de dominios prohibidos:} las dos entradas de \cfgkey{blocked} responden
+	      \status{403 Forbidden} sin contactar al servidor de destino, mientras que un sitio no
+	      bloqueado sigue respondiendo \status{200 OK}.
+
+	      \begin{verbatim}
+% curl -si cc4303.bachmann.cl/secret -x IP_VM:8000
+HTTP/1.1 403 Forbidden
+Content-Type: text/html; charset=utf-8
+Content-Length: 167
+
+<html><body><h1>403 Forbidden - Acceso Prohibido</h1><p>El acceso a esta
+ruta esta bloqueado por el proxy.</p><img src='/gato.jpg'></body></html>
+
+% curl -s -o /dev/null -w '%{http_code}' www.dcc.uchile.cl  -x IP_VM:8000
+403
+% curl -s -o /dev/null -w '%{http_code}' cc4303.bachmann.cl -x IP_VM:8000
+200
+	      \end{verbatim}
+
+	      El segundo ciclo HTTP se verificó por separado: la petición a \code{/gato.jpg} devuelve
+	      \status{200 OK} con \hdr{Content-Type} \code{image/jpeg} y los 89.818 bytes de la imagen
+	      local, idénticos al archivo en disco.
+
+	\item \textbf{Header X-ElQuePregunta:} el mensaje de bienvenida cambia al pasar por el proxy,
+	      lo que confirma que el header se agrega a la request antes de reenviarla al destino.
+
+	      \begin{verbatim}
+% curl -s cc4303.bachmann.cl
+    <h1>Bienvenide ... oh? no puedo ver tu nombre :c!</h1>
+% curl -s cc4303.bachmann.cl -x IP_VM:8000
+    <h1>Bienvenide Maria Elena Moya!</h1>
+	      \end{verbatim}
+
+	\item \textbf{Reemplazo de palabras prohibidas:} en \code{/replace} las tres palabras de
+	      \cfgkey{forbidden\_words} son reemplazadas y el resto del contenido queda intacto: un
+	      \code{diff} contra la misma página pedida sin proxy muestra diferencias únicamente en
+	      esas palabras. El BODY original mide 1155 bytes y el reemplazado 1225, y el
+	      \hdr{Content-Length} entregado al cliente coincide con este último valor, por lo que el
+	      navegador no reporta errores de contenido.
+
+	      \begin{verbatim}
+% curl -s cc4303.bachmann.cl/replace -x IP_VM:8000
+    <h2>Un [REDACTED] es cualquier dispositivo intermedio entre un cliente
+    y servidor ... usando el [REDACTED] del [FORBIDDEN] ... a una [???] a
+    la cual la Universidad tiene acceso ...
+	      \end{verbatim}
+
+	\item \textbf{Método HEAD (limitación conocida):} \code{curl -I} a través del proxy no llega a
+	      completarse. Una respuesta a HEAD no trae BODY, pero sí declara el \hdr{Content-Length}
+	      que tendría la respuesta a un GET; como \code{\_read\_raw} solo ve la response y no el
+	      método pedido, entra a leer un BODY que nunca llega y queda bloqueado en \code{recv()}
+	      hasta que el servidor cierre la conexión. Como el servidor responde
+	      \hdr{Connection: keep-alive}, esa espera dura lo que dure su \textit{keep-alive}
+	      (cerca de un minuto en nuestras pruebas) y, al ser el proxy de un solo hilo, durante ese
+	      lapso no atiende a ningún otro cliente. Se corregiría pasando el método de la request a
+	      \code{HttpMessage.receive}, para omitir la lectura del BODY cuando la respuesta
+	      corresponde a un HEAD.
+\end{enumerate}
+
+\subsection{Pruebas con el navegador}
+Las siguientes pruebas se realizaron con el navegador configurado para utilizar el proxy HTTP. Se obtuvieron las siguientes observaciones:
 
 \begin{enumerate}
 	\item \textbf{\url{http://cc4303.bachmann.cl/secret}:} la página ya no se muestra,
@@ -236,18 +324,60 @@ Las pruebas se realizaron con el navegador configurado para utilizar el proxy HT
 		      \label{fig:replace}
 	      \end{figure}
 
-	\item \textbf{Buffer de recepción menor que el mensaje pero mayor que el área de headers:} los headers se reciben completamente en una primera lectura, mientras que el BODY requiere lecturas adicionales hasta completar la cantidad de bytes indicada por \hdr{Content-Length}.
-
-	\item \textbf{Buffer de recepción menor que el área de headers pero mayor que la start line:} los headers deben recibirse mediante varias llamadas a \code{recv()}, acumulando los bytes hasta encontrar la secuencia que indica el final de los headers. Una vez obtenidos, se procede a leer el BODY utilizando \hdr{Content-Length}.
 \end{enumerate}
 
+\subsection{Pruebas con buffer de recepción pequeño}
+Para estas pruebas se redujo el parámetro \code{buff\_size} de \code{HttpMessage.\_read\_raw} y \code{HttpMessage.receive} (4096 por defecto) y se repitió la petición a \code{/replace}, cuya respuesta mide 1351 bytes: 17 bytes de start line, 196 bytes de área de headers y 1155 bytes de BODY.
+
+\begin{enumerate}
+	\item \textbf{Buffer de recepción menor que el mensaje pero mayor que el área de headers}
+	      (\code{buff\_size = 512}): los headers se completan en una sola llamada a \code{recv()},
+	      que además arrastra parte del BODY, y el BODY se completa con 2 lecturas adicionales
+	      hasta alcanzar los 1155 bytes indicados por \hdr{Content-Length}
+	      (Figura~\ref{fig:buffer512}).
+
+	      \begin{figure}[H]
+		      \centering
+		      \includegraphics[width=0.8\textwidth]{img/buffer-512.png}
+		      \caption{Recepción con \code{buff\_size = 512}: los headers caben en una lectura.}
+		      \label{fig:buffer512}
+	      \end{figure}
+
+	\item \textbf{Buffer de recepción menor que el área de headers pero mayor que la start line}
+	      (\code{buff\_size = 50}): el área de headers ya no cabe en una lectura y se arma
+	      acumulando 4 llamadas a \code{recv()} hasta encontrar \verb|\r\n\r\n|; el BODY requiere
+	      otras 24. La request del cliente, de 144 bytes, se arma a su vez con 3 lecturas
+	      (Figura~\ref{fig:buffer50}).
+
+	      \begin{figure}[H]
+		      \centering
+		      \includegraphics[width=0.8\textwidth]{img/buffer-50.png}
+		      \caption{Recepción con \code{buff\_size = 50}: el área de headers requiere varias lecturas.}
+		      \label{fig:buffer50}
+	      \end{figure}
+\end{enumerate}
+
+En los tres tamaños probados (4096, 512 y 50) el contenido entregado al cliente fue idéntico byte a byte ---1225 bytes tras el reemplazo, mismo \code{md5sum}---, de modo que el tamaño del buffer no cambia el resultado sino solamente la cantidad de llamadas a \code{recv()}. Esto vale para respuestas delimitadas por \hdr{Content-Length}, que es el caso de \url{http://cc4303.bachmann.cl}: una respuesta \hdr{Transfer-Encoding: chunked} como la de \url{http://example.com} solo se reenvía completa mientras alcance a caber en una lectura, según la limitación ya señalada.
+
 \section{Ejecución y repositorio}
-El código se ejecuta pasando el archivo de configuración como argumento:
+El código se ejecuta pasando el archivo de configuración como argumento, desde el directorio del repositorio, ya que el proxy abre \code{gato.jpg} con una ruta relativa:
 
 \begin{verbatim}
 python3 server.py config.json
-curl example.com -x IP_VM:8000
 \end{verbatim}
+
+El socket de escucha se enlaza a \code{(0.0.0.0, 8000)}, de modo que el proxy queda accesible en \code{IP\_VM:8000}; en las pruebas reportadas \code{IP\_VM} fue \code{192.168.2.5}. Si no se dispone de la máquina virtual, el mismo código funciona en \code{127.0.0.1:8000}.
+
+Desde la máquina cliente, el proxy se prueba con \code{curl}:
+
+\begin{verbatim}
+curl example.com                 -x IP_VM:8000
+curl cc4303.bachmann.cl          -x IP_VM:8000
+curl cc4303.bachmann.cl/replace  -x IP_VM:8000
+curl cc4303.bachmann.cl/secret   -x IP_VM:8000
+\end{verbatim}
+
+Para usarlo desde el navegador (Firefox) se entra a \textit{Ajustes}, sección \textit{Red}, botón \textit{Configuración}, y se elige \textit{Configuración manual del proxy}, indicando \code{IP\_VM} como \textit{Proxy HTTP} y \code{8000} como puerto. No debe marcarse la opción de usar el mismo proxy para HTTPS, ya que el proxy solo maneja HTTP.
 
 Repositorio: \url{https://github.com/MFSaavedra/C1_Redes}
 

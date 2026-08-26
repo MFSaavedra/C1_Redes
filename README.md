@@ -1,16 +1,15 @@
 # CC4303 — Actividad 1: servidor HTTP y proxy
 
 Actividad 1 del curso **Redes (CC4303)**, DCC — Universidad de Chile.
-El objetivo es implementar HTTP a mano sobre *sockets* crudos: primero un servidor
-que responde peticiones, y luego un **proxy** que se interpone entre el navegador y
+El objetivo es implementar HTTP a mano sobre sockets: primero un servidor
+que responde peticiones, y luego un proxy que se interpone entre el navegador y
 el servidor de origen, pudiendo bloquear dominios, agregar headers y censurar
 palabras en las respuestas.
 
-**Restricción del enunciado:** solo se permite la librería `socket`. No se usa
+**Restricción:** solo se permite la librería `socket`. No se usa
 `http.server`, `http.client`, `requests` ni `urllib`; el parseo, el framing y la
-construcción de los mensajes HTTP están escritos a mano en `HttpMessage.py`.
-La única excepción es `json`, que el propio enunciado exige para leer la
-configuración.
+construcción de los mensajes HTTP están escritos en `HttpMessage.py`.
+También se utiliza `json` y `sys` para leer la configuración y manejar argumentos de línea de comandos.
 
 Integrantes: María Moya G., M. Fernando Saavedra.
 
@@ -19,10 +18,7 @@ Integrantes: María Moya G., M. Fernando Saavedra.
 | Rama | Parte | Contenido |
 |---|---|---|
 | `Parte_1` | Parte 1 | Servidor HTTP: escucha en el puerto 8000, parsea la request y responde un `200 OK` con HTML mínimo y el header `X-ElQuePregunta`. |
-| `feature/proxy` | Parte 2 | Proxy HTTP completo (rama por defecto del repositorio). Parte de la Parte 1 y agrega el reenvío al servidor de origen, el bloqueo de dominios, la inyección del header y el reemplazo de palabras. |
-
-La rama `OOP_refactor` ya está integrada: fue donde se movió la lógica de protocolo
-a la clase `HttpMessage` y se corrigió el parseo de respuestas (no solo de requests).
+| `feature/proxy` | Parte 2 | Proxy HTTP completo (rama por defecto). Parte de la Parte 1 y agrega el reenvío al servidor de origen, el bloqueo de dominios, la inyección del header y el reemplazo de palabras. |
 
 ## Ejecución
 
